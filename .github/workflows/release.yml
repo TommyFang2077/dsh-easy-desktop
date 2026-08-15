@@ -130,7 +130,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tauriScript: cargo tauri
           tagName: v__VERSION__
           releaseName: DeepSeek Harness Desktop v__VERSION__
           releaseBody: |
@@ -142,7 +141,8 @@ jobs:
             - macOS 包未公证，需在「系统设置 → 隐私与安全性」中允许打开。
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: false
+          uploadUpdaterJson: false
+          uploadUpdaterSignatures: false
           args: ${{ matrix.args }}
 
   flatpak:
