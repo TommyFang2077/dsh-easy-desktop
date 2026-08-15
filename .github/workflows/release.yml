@@ -150,7 +150,7 @@ jobs:
     needs: [test, version, vendor]
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-47
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       options: --privileged
     steps:
       - uses: actions/checkout@v4
@@ -164,7 +164,7 @@ jobs:
         with:
           bundle: io.github.tommyfang.DshDesktop.flatpak
           manifest-path: flatpak/io.github.tommyfang.DshDesktop.yml
-          cache-key: flatpak-gnome-47-${{ hashFiles('flatpak/io.github.tommyfang.DshDesktop.yml', 'Cargo.lock') }}
+          cache-key: flatpak-gnome-50-${{ hashFiles('flatpak/io.github.tommyfang.DshDesktop.yml', 'Cargo.lock') }}
           upload-artifact: false
 
       - name: Attach Flatpak to GitHub Release

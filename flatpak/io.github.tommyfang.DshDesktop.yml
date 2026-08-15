@@ -1,6 +1,6 @@
 app-id: io.github.tommyfang.DshDesktop
 runtime: org.gnome.Platform
-runtime-version: '47'
+runtime-version: '50'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node24
@@ -50,6 +50,7 @@ modules:
       build-args:
         - --share=network
     build-commands:
+      - mkdir -p vendor/modlens vendor/anchored-standard vendor/zero-anchored-standard
       - cargo build --release --locked --offline || cargo build --release
       - install -Dm755 target/release/dsh-desktop ${FLATPAK_DEST}/bin/dsh-desktop
       - mkdir -p ${FLATPAK_DEST}/share/dsh-desktop/vision

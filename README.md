@@ -200,9 +200,9 @@ Flatpak 是唯一把 `dsh` 打进包内的渠道。
 ```bash
 flatpak remote-add --user --if-not-exists flathub \
   https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user -y flathub org.gnome.Sdk//47 org.flatpak.Builder \
-  org.freedesktop.Sdk.Extension.rust-stable//24.08 \
-  org.freedesktop.Sdk.Extension.node24//24.08
+flatpak install --user -y flathub org.gnome.Sdk//50 org.flatpak.Builder \
+  org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+  org.freedesktop.Sdk.Extension.node24//25.08
 
 make vendor
 make flatpak-build
