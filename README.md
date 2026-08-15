@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/icon.png" width="108" alt="DeepSeek Harness Desktop" />
+  <img src="docs/screenshots/banner.png" alt="DeepSeek Harness Desktop：官方 dsh 原生壳，给 DeepSeek 带上眼睛" />
 </p>
 
 <h1 align="center">DeepSeek Harness Desktop</h1>
@@ -27,8 +27,6 @@
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
-![主窗口：官方 WebUI 嵌在原生壳里](docs/screenshots/session.png)
-
 dsh 只能开在浏览器标签页里？这个仓库把它变成一个真正的桌面应用：Tauri 2 原生窗口 + 系统 WebView，Linux / Windows / macOS 通用。打开就是官方 WebUI——会话、工作区、插件、技能一个不少，`dsh` 升级后界面跟着升级，永远不用重打包前端。
 
 这是作者自用的第三方壳，**不包含** DeepSeek Harness 源码，会持续跟着 dsh 和内置组件更新；踩到坑欢迎 [提 issue](https://github.com/TommyFang2077/dsh-desktop/issues)。仓库按官方 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 挂了 [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic。
@@ -50,6 +48,8 @@ DeepSeek V4 Pro 会按「第一眼看到的工具表」选执行轨迹：Project
 ### 🪟 像个真正的 Mac / Linux / Windows 应用
 
 36px 苹果风薄标题栏，不占一排后退/前进/刷新；左侧 `•••` 菜单可重启 dsh 或跳回浏览器。关窗口自动停掉 `dsh web`，崩溃一键拉起。凭据、权限、会话全部还在 `~/.dsh`，卸载壳不丢任何东西。
+
+![主窗口：官方 WebUI 嵌在原生壳里](docs/screenshots/session.png)
 
 ![标题栏菜单：重新启动 / 在浏览器中打开](docs/screenshots/menu.png)
 
