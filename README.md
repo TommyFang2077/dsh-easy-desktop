@@ -21,9 +21,9 @@
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
-本仓库是第三方桌面壳，**不包含** DeepSeek Harness 源码。打开即是官方 WebUI：会话、工作区、插件、技能一个不改，`dsh` 升级后界面跟着升级。仓库已按 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin)。
+本仓库是作者自用的第三方桌面壳，**不包含** DeepSeek Harness 源码。打开即是官方 WebUI：会话、工作区、插件、技能都还在，`dsh` 升级后界面跟着升级。会持续跟着 dsh 和内置组件更新，遇到问题欢迎 [提 issue](https://github.com/TommyFang2077/dsh-desktop/issues)。仓库按 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 加了 [`dsh-plugin`](https://github.com/topics/dsh-plugin)。
 
-**装完就能用，不用再手搓插件：**
+自用时打进去的两样：
 
 | 开箱内置 | 给 DeepSeek 带来什么 |
 | --- | --- |
@@ -217,6 +217,10 @@ dsh-desktop/
 ├── scripts/localize_preset.py
 └── .github/workflows/          # 测试 + 多平台发布
 ```
+
+## 反馈
+
+自用项目，会持续更新。bug、想法、打包问题都欢迎开 [issue](https://github.com/TommyFang2077/dsh-desktop/issues)。
 
 ## 图标与商标
 
