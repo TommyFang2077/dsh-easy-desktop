@@ -43,6 +43,8 @@ DeepSeek 主力对话模型是纯文本的——你贴一张截图，它两眼�
 
 DeepSeek V4 Pro 会按「第一眼看到的工具表」选执行轨迹：Project2 评测里官方 Minimal 拿 **99**，Standard 只有 **91**——但常驻 Minimal 又缺工具。内置的 [锚定式标准](https://github.com/xiaobright/dsh-anchored-standard) 两头都要：**首轮用 Minimal 真工具对钉住高分轨迹，从第二轮起解锁完整 Standard 工具目录**，同配置实测 Ability **98 / 99**，相对 Standard 的 91 约 **+8% / +9%**。另附零工具锚定变体。新会话默认就是它，开箱即用。
 
+![模式菜单：锚定式标准（实验）已选中](docs/screenshots/anchored.png)
+
 *百分比按预设作者在 Project2 / DeepSeek V4 Pro 上的 Ability 计算：`(98−91)/91 ≈ 8%`。同配置可复现；社区实验预设，不是官方出品，不代表所有任务都涨。*
 
 ### 🪟 像个真正的 Mac / Linux / Windows 应用
