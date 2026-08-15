@@ -5,8 +5,12 @@
 </p>
 
 <p align="center">
-  <strong>把官方 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（<code>dsh</code>）WebUI 放进原生窗口。</strong><br />
-  Tauri 2 壳 · 系统 WebView · 苹果风薄标题栏 · Linux / Windows / macOS
+  <strong>官方 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（dsh）桌面壳</strong><br />
+  自带视图给 DeepSeek <strong>带上眼睛</strong> · 内置锚定模式相对 Standard <strong>约 +8%</strong>
+</p>
+
+<p align="center">
+  Tauri 2 原生窗口 · 系统 WebView · Linux / Windows / macOS
 </p>
 
 <p align="center">
@@ -17,7 +21,16 @@
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
-本仓库是第三方桌面壳，**不包含** DeepSeek Harness 源码。官方 WebUI 由本机或 Flatpak 内的 `dsh web` 提供；升级 `dsh` 后界面跟着升级，不必重打包前端。仓库已按 [DeepSeek Harness 贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 添加 GitHub topic [`dsh-plugin`](https://github.com/topics/dsh-plugin)，方便在生态里被发现。
+本仓库是第三方桌面壳，**不包含** DeepSeek Harness 源码。打开即是官方 WebUI：会话、工作区、插件、技能一个不改，`dsh` 升级后界面跟着升级。仓库已按 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin)。
+
+**装完就能用，不用再手搓插件：**
+
+| 开箱内置 | 给 DeepSeek 带来什么 |
+| --- | --- |
+| **[ModLens](https://github.com/liustack/modlens) 视图** | **给 DeepSeek 带上眼睛。** 主力对话模型是纯文本，看不见图。这是全网第一个 dsh 视觉插件：外挂视觉引擎后 **直接粘贴图片就能识别**，不用先存盘。本应用还带 **设置 → 视觉模型**（OpenAI / Gemini / Anthropic / CLI）。 |
+| **[锚定式标准](https://github.com/xiaobright/dsh-anchored-standard)** | **把 DeepSeek 的能力相对官方 Standard 提高约 8%。** V4 Pro 会按第一眼看到的工具表选轨迹：Project2 上 Standard **91**、Minimal **99**，但 Minimal 缺工具。锚定模式首轮用 Minimal 真工具对钉住轨迹，随后解锁完整 Standard 工具——同配置 Ability **98 / 99**（相对 91 约 **+8% / +9%**）。另附零工具锚定。社区实验，不是官方出品。 |
+
+*百分比按作者在 Project2 / DeepSeek V4 Pro 上的 Ability：`(98−91)/91 ≈ 8%`、`(99−91)/91 ≈ 9%`。同配置可复现，不代表所有任务都涨。*
 
 ![启动页：正在启动官方 WebUI](docs/screenshots/splash.png)
 
@@ -28,9 +41,8 @@
 | 原生窗口 | 启动 `dsh web --host 127.0.0.1 --port 0`，解析 stdout 里的随机端口，用系统 WebView 加载官方 WebUI |
 | 薄标题栏 | 左侧 `•••` 菜单（重新启动 / 在浏览器中打开），右侧最小化 · 缩放 · 关闭；不再占用一排后退/前进/刷新 |
 | 零重写 | 官方会话、工作区、插件、技能全部保留 |
-| 内置 ModLens | 启动时写入 `~/.dsh/profiles/web`，纯文本模型自动套视觉桥 |
-| 视觉设置页 | WebUI **设置 → 视觉模型** 配置引擎，写入 `~/.modlens/config.json` |
-| 内置锚定预设 | **锚定式标准（实验）**、**零工具锚定式标准（实验）** 写入 `~/.dsh/.agent-presets/` |
+| 内置视图 | **给 DeepSeek 带上眼睛**：纯文本模型也能粘贴识图 |
+| 内置锚定 | 相对官方 Standard，Project2 实测约 **+8%**（91 → 98/99） |
 | 生命周期 | 启动页显示状态；关窗口停掉 `dsh web`；崩溃可从标题栏重新启动 |
 
 ![主窗口：官方 WebUI 嵌在原生壳里](docs/screenshots/session.png)
@@ -70,7 +82,7 @@
 | 当前版本 | `3.16.6` |
 | 作者 | Leon Liu / [liustack](https://github.com/liustack) |
 | 许可证 | MIT · [docs/licenses/modlens.LICENSE](docs/licenses/modlens.LICENSE) |
-| 作用 | 给纯文本对话模型补视觉能力（粘贴图片即可）。已声明视觉能力的模型（如 Qwen）不会走这条桥 |
+| 亮点 | 给 DeepSeek 带上眼睛：纯文本模型粘贴即可读图 |
 | 安装位置 | 启动时复制到 `~/.dsh/profiles/web/node_modules/@liustack/modlens` |
 
 官方安装方式（本应用已内置，一般不必再跑）：
@@ -111,6 +123,7 @@ npx -y @deepseek-ai/dsh plugin --profile web add @liustack/modlens@3.16.6
 | 作者 | [xiaobright](https://github.com/xiaobright) |
 | 许可证 | MIT（含 DeepSeek 部分版权）· [LICENSE](docs/licenses/dsh-anchored-standard.LICENSE) · [NOTICE](docs/licenses/dsh-anchored-standard.NOTICE) |
 | 本仓库中的名称 | **锚定式标准（实验）**、**零工具锚定式标准（实验）**（`scripts/localize_preset.py` 本地化） |
+| 亮点 | 相对官方 Standard 约 **+8%**（Project2 Ability 91 → 98/99），同时拿回完整工具目录 |
 | 安装位置 | `~/.dsh/.agent-presets/anchored-standard` 与 `zero-anchored-standard` |
 
 NOTICE 写明：预设改编自 DeepSeek Harness Standard agent preset（[deepseek-harness@47f9438](https://github.com/deepseek-ai/deepseek-harness)）。这是社区实验 preset，**不是** DeepSeek 官方预设。若用户还没有默认 preset，桌面会把默认设为锚定式标准。

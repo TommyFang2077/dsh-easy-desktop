@@ -49,6 +49,8 @@ class BundledAttributionTests(unittest.TestCase):
             self.assertIn("ffb845c5480adc953392a6db6f8a98ede621174b", text)
             self.assertIn("dsh-desktop-vision", text)
         self.assertIn("dsh-plugin", readme)
+        self.assertIn("带上眼睛", readme)
+        self.assertIn("+8%", readme)
         self.assertTrue((ROOT / "docs" / "licenses" / "modlens.LICENSE").is_file())
         self.assertTrue(
             (ROOT / "docs" / "licenses" / "dsh-anchored-standard.NOTICE").is_file()

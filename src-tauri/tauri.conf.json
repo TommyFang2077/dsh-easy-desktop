@@ -22,8 +22,8 @@
     "homepage": "https://github.com/TommyFang2077/dsh-desktop",
     "copyright": "Copyright © 2026 TommyFang2077",
     "category": "DeveloperTool",
-    "shortDescription": "Desktop shell for DeepSeek Harness",
-    "longDescription": "Runs the official DeepSeek Harness (dsh) WebUI in a native window. Starts dsh web, embeds the UI with the system WebView, and ships ModLens plus Anchored Standard presets. Credentials stay in ~/.dsh.",
+    "shortDescription": "Give DeepSeek eyes; Anchored Standard ~+8%",
+    "longDescription": "Official dsh WebUI in a native window. Built-in ModLens vision gives text-only DeepSeek eyes (paste to read images). Built-in Anchored Standard raises DeepSeek about 8% over official Standard on Project2 (Ability 91 to 98/99). Credentials stay in ~/.dsh.",
     "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",

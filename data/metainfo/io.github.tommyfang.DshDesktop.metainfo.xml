@@ -2,8 +2,8 @@
 <component type="desktop-application">
   <id>io.github.tommyfang.DshDesktop</id>
   <name>DeepSeek Harness Desktop</name>
-  <summary>Desktop shell for DeepSeek Harness</summary>
-  <summary xml:lang="zh_CN">DeepSeek Harness 的原生桌面壳</summary>
+  <summary>Give DeepSeek eyes and ~+8% with Anchored Standard</summary>
+  <summary xml:lang="zh_CN">给 DeepSeek 带上眼睛；内置锚定模式约 +8%</summary>
 
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
@@ -14,15 +14,12 @@
 
   <description>
     <p>
-      DeepSeek Harness Desktop runs the official DeepSeek Harness (dsh) WebUI
-      in a native Tauri window. It starts dsh web, waits for its local URL and
-      embeds the UI with the system WebView. Credentials, plugins and agent
-      permissions stay in ~/.dsh.
-    </p>
-    <p>
-      The app bundles ModLens for text-only vision, a settings page at
-      设置 → 视觉模型, and the community Anchored Standard presets.
-      The Flatpak also bundles Node.js and @deepseek-ai/dsh.
+      Official DeepSeek Harness (dsh) WebUI in a native window. Built-in
+      ModLens vision gives text-only DeepSeek eyes: paste an image and it
+      can read it. Built-in Anchored Standard raises DeepSeek V4 Pro about
+      8% over official Standard on Project2 (Ability 91 to 98/99) by
+      anchoring the first turn on Minimal tools, then unlocking the full
+      catalog. Credentials stay in ~/.dsh.
     </p>
   </description>
 
