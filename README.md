@@ -1,16 +1,22 @@
-# DeepSeek Harness Desktop
+<p align="center">
+  <img src="docs/screenshots/icon.png" width="108" alt="DeepSeek Harness Desktop" />
+</p>
+
+<h1 align="center">DeepSeek Harness Desktop</h1>
 
 <p align="center">
-  <img src="docs/screenshots/icon.png" width="96" alt="DeepSeek Harness" />
+  <strong>官方 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（dsh）的原生桌面壳</strong>
 </p>
 
 <p align="center">
-  <strong>官方 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（dsh）桌面壳</strong><br />
-  自带视图给 DeepSeek <strong>带上眼睛</strong> · 内置锚定模式相对 Standard <strong>约 +8%</strong>
+  👁️ 给 DeepSeek <strong>带上眼睛</strong> —— 粘贴图片直接识别&nbsp;&nbsp;·&nbsp;&nbsp;⚓ 锚定模式实测比官方 Standard <strong>约 +8%</strong>
 </p>
 
 <p align="center">
-  Tauri 2 原生窗口 · 系统 WebView · Linux / Windows / macOS
+  <a href="https://github.com/TommyFang2077/dsh-desktop/releases/latest"><b>⬇ 下载</b></a> ·
+  <a href="#三十秒上手">三十秒上手</a> ·
+  <a href="#内置插件与预设">内置插件</a> ·
+  <a href="#从源码运行">从源码运行</a>
 </p>
 
 <p align="center">
@@ -21,39 +27,67 @@
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
-本仓库是作者自用的第三方桌面壳，**不包含** DeepSeek Harness 源码。打开即是官方 WebUI：会话、工作区、插件、技能都还在，`dsh` 升级后界面跟着升级。会持续跟着 dsh 和内置组件更新，遇到问题欢迎 [提 issue](https://github.com/TommyFang2077/dsh-desktop/issues)。仓库按 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 加了 [`dsh-plugin`](https://github.com/topics/dsh-plugin)。
-
-自用时打进去的两样：
-
-| 开箱内置 | 给 DeepSeek 带来什么 |
-| --- | --- |
-| **[ModLens](https://github.com/liustack/modlens) 视图** | **给 DeepSeek 带上眼睛。** 主力对话模型是纯文本，看不见图。这是全网第一个 dsh 视觉插件：外挂视觉引擎后 **直接粘贴图片就能识别**，不用先存盘。本应用还带 **设置 → 视觉模型**（OpenAI / Gemini / Anthropic / CLI）。 |
-| **[锚定式标准](https://github.com/xiaobright/dsh-anchored-standard)** | **把 DeepSeek 的能力相对官方 Standard 提高约 8%。** V4 Pro 会按第一眼看到的工具表选轨迹：Project2 上 Standard **91**、Minimal **99**，但 Minimal 缺工具。锚定模式首轮用 Minimal 真工具对钉住轨迹，随后解锁完整 Standard 工具——同配置 Ability **98 / 99**（相对 91 约 **+8% / +9%**）。另附零工具锚定。社区实验，不是官方出品。 |
-
-*百分比按作者在 Project2 / DeepSeek V4 Pro 上的 Ability：`(98−91)/91 ≈ 8%`、`(99−91)/91 ≈ 9%`。同配置可复现，不代表所有任务都涨。*
-
-![启动页：正在启动官方 WebUI](docs/screenshots/splash.png)
-
-## 功能
-
-| 能力 | 说明 |
-| --- | --- |
-| 原生窗口 | 启动 `dsh web --host 127.0.0.1 --port 0`，解析 stdout 里的随机端口，用系统 WebView 加载官方 WebUI |
-| 薄标题栏 | 左侧 `•••` 菜单（重新启动 / 在浏览器中打开），右侧最小化 · 缩放 · 关闭；不再占用一排后退/前进/刷新 |
-| 零重写 | 官方会话、工作区、插件、技能全部保留 |
-| 内置视图 | **给 DeepSeek 带上眼睛**：纯文本模型也能粘贴识图 |
-| 内置锚定 | 相对官方 Standard，Project2 实测约 **+8%**（91 → 98/99） |
-| 生命周期 | 启动页显示状态；关窗口停掉 `dsh web`；崩溃可从标题栏重新启动 |
-
 ![主窗口：官方 WebUI 嵌在原生壳里](docs/screenshots/session.png)
 
-*上图为桌面壳嵌套官方 WebUI 的界面示意（自定义标题栏为实际注入样式）。凭据、会话和插件仍在 `~/.dsh`，截图未使用真实对话记录。*
+dsh 只能开在浏览器标签页里？这个仓库把它变成一个真正的桌面应用：Tauri 2 原生窗口 + 系统 WebView，Linux / Windows / macOS 通用。打开就是官方 WebUI——会话、工作区、插件、技能一个不少，`dsh` 升级后界面跟着升级，永远不用重打包前端。
+
+这是作者自用的第三方壳，**不包含** DeepSeek Harness 源码，会持续跟着 dsh 和内置组件更新；踩到坑欢迎 [提 issue](https://github.com/TommyFang2077/dsh-desktop/issues)。仓库按官方 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 挂了 [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic。
+
+## 为什么值得一试
+
+### 👁️ 给 DeepSeek 带上眼睛
+
+DeepSeek 主力对话模型是纯文本的——你贴一张截图，它两眼一抹黑。本应用内置 [ModLens](https://github.com/liustack/modlens)（全网第一个 dsh 视觉插件）：外挂视觉引擎后，**图片直接粘贴进对话框就能识别**，不用先存盘再填路径。配套的 **设置 → 视觉模型** 页面把 OpenAI / Gemini / Anthropic / 本机 CLI 引擎全配齐，免费的 Gemini key 就能跑。
+
+![设置 → 视觉模型](docs/screenshots/vision.png)
+
+### ⚓ 锚定模式：比官方 Standard 约 +8%
+
+DeepSeek V4 Pro 会按「第一眼看到的工具表」选执行轨迹：Project2 评测里官方 Minimal 拿 **99**，Standard 只有 **91**——但常驻 Minimal 又缺工具。内置的 [锚定式标准](https://github.com/xiaobright/dsh-anchored-standard) 两头都要：**首轮用 Minimal 真工具对钉住高分轨迹，从第二轮起解锁完整 Standard 工具目录**，同配置实测 Ability **98 / 99**，相对 Standard 的 91 约 **+8% / +9%**。另附零工具锚定变体。新会话默认就是它，开箱即用。
+
+*百分比按预设作者在 Project2 / DeepSeek V4 Pro 上的 Ability 计算：`(98−91)/91 ≈ 8%`。同配置可复现；社区实验预设，不是官方出品，不代表所有任务都涨。*
+
+### 🪟 像个真正的 Mac / Linux / Windows 应用
+
+36px 苹果风薄标题栏，不占一排后退/前进/刷新；左侧 `•••` 菜单可重启 dsh 或跳回浏览器。关窗口自动停掉 `dsh web`，崩溃一键拉起。凭据、权限、会话全部还在 `~/.dsh`，卸载壳不丢任何东西。
 
 ![标题栏菜单：重新启动 / 在浏览器中打开](docs/screenshots/menu.png)
 
+## 三十秒上手
+
+去 [GitHub Releases](https://github.com/TommyFang2077/dsh-desktop/releases/latest) 下载对应平台的安装包：
+
+| 平台 | 产物 | 运行时要求 |
+| --- | --- | --- |
+| 🪟 Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ 本机 `dsh` |
+| 🍎 macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + 本机 `dsh` |
+| 🐧 Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + 本机 `dsh` |
+| 📦 Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与 `@deepseek-ai/dsh` |
+
+除 Flatpak 外需要本机有 `dsh`：
+
+```bash
+npm install -g @deepseek-ai/dsh
+```
+
+装好后启动，等启动页转完就是官方 WebUI。
+
+![启动页：正在启动官方 WebUI](docs/screenshots/splash.png)
+
+## 功能一览
+
+| 能力 | 说明 |
+| --- | --- |
+| 原生窗口 | 启动 `dsh web --host 127.0.0.1 --port 0`，解析随机端口后用系统 WebView 加载 |
+| 零重写 | 官方会话、工作区、插件、技能全部保留；dsh 升级即界面升级 |
+| 内置视图 | 👁️ 纯文本 DeepSeek 也能粘贴识图（ModLens + 设置页） |
+| 内置锚定 | ⚓ 相对官方 Standard 约 +8%（Project2 Ability 91 → 98/99） |
+| 薄标题栏 | `•••` 菜单（重新启动 / 在浏览器中打开）+ 右侧最小化 · 缩放 · 关闭 |
+| 生命周期 | 关窗口停掉 `dsh web`；崩溃可从标题栏一键重启 |
+
 ## 内置插件与预设
 
-应用启动时会把下面这些东西同步到用户目录。版本钉死在 [Makefile](Makefile)；第三方原文许可证见 [docs/licenses/](docs/licenses/) 与 [THIRD_PARTY.md](THIRD_PARTY.md)。
+应用启动时把下面这些同步到用户目录。版本钉死在 [Makefile](Makefile)；第三方原文许可证见 [docs/licenses/](docs/licenses/) 与 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 ### 1. DeepSeek Harness（`dsh`）
 
@@ -112,8 +146,6 @@ npx -y @deepseek-ai/dsh plugin --profile web add @liustack/modlens@3.16.6
 
 外链在系统浏览器中打开（Tauri `on_navigation`），密钥只写在本机 ModLens 配置里。
 
-![设置 → 视觉模型](docs/screenshots/vision.png)
-
 ### 4. Anchored Standard 预设
 
 | | |
@@ -127,27 +159,6 @@ npx -y @deepseek-ai/dsh plugin --profile web add @liustack/modlens@3.16.6
 | 安装位置 | `~/.dsh/.agent-presets/anchored-standard` 与 `zero-anchored-standard` |
 
 NOTICE 写明：预设改编自 DeepSeek Harness Standard agent preset（[deepseek-harness@47f9438](https://github.com/deepseek-ai/deepseek-harness)）。这是社区实验 preset，**不是** DeepSeek 官方预设。若用户还没有默认 preset，桌面会把默认设为锚定式标准。
-
-## 安装包
-
-打 `v*` 标签（例如 `git tag v0.1.0 && git push origin v0.1.0`）后，[Release 工作流](.github/workflows/release.yml)会测试、打包并发布：
-
-| 平台 | 产物 | 运行时要求 |
-| --- | --- | --- |
-| Windows | NSIS `.exe`、MSI | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）；本机 `dsh` |
-| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「系统设置 → 隐私与安全性」允许；本机 `dsh` |
-| Linux | `.deb`、`.rpm` | WebKitGTK 4.1；本机 `dsh` |
-| Linux | `.flatpak` | **自带** Node.js 24 与 `@deepseek-ai/dsh`，不需要本机安装 dsh |
-
-从 [GitHub Releases](https://github.com/TommyFang2077/dsh-desktop/releases) 下载对应文件。
-
-本机 `dsh`：
-
-```bash
-npm install -g @deepseek-ai/dsh
-# 或
-npx --yes @deepseek-ai/dsh --version
-```
 
 ## 从源码运行
 
@@ -179,6 +190,8 @@ cargo tauri build --bundles deb,rpm      # Linux
 cargo tauri build --bundles nsis,msi     # Windows
 cargo tauri build --bundles app,dmg      # macOS
 ```
+
+发布：打 `v*` 标签（如 `git tag v0.1.0 && git push origin v0.1.0`），[Release 工作流](.github/workflows/release.yml)自动测试、打包 Windows / macOS / deb / rpm / Flatpak 并挂到 GitHub Releases。
 
 ## Flatpak
 
