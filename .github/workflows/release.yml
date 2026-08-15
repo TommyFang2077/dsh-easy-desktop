@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test
+        run: make test
+
+  version:
+    name: Version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "Git tag ${GITHUB_REF_NAME} must match Cargo.toml version v${VERSION}" >&2
+            exit 1
+          fi
+
+  vendor:
+    name: Vendor Flatpak runtime
+    needs: test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Vendor dsh, ModLens, and presets
+        run: make vendor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vendor
+          path: vendor
+          include-hidden-files: true
+          retention-days: 1
+
+  package:
+    name: Package ${{ matrix.name }}
+    needs: [test, version]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-arm64
+            platform: macos-latest
+            rust_targets: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin --bundles app,dmg
+          - name: macos-x64
+            platform: macos-latest
+            rust_targets: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin --bundles app,dmg
+          - name: linux
+            platform: ubuntu-22.04
+            rust_targets: ""
+            args: --bundles deb,rpm
+          - name: windows
+            platform: windows-latest
+            rust_targets: ""
+            args: --bundles nsis,msi
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Install Linux packaging deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils \
+            rpm
+
+      - name: Vendor bundled plugins
+        shell: bash
+        run: bash scripts/vendor-native.sh
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: .
+          tauriScript: cargo tauri
+          tagName: v__VERSION__
+          releaseName: DeepSeek Harness Desktop v__VERSION__
+          releaseBody: |
+            跨平台安装包：Windows NSIS/MSI、macOS DMG（Apple Silicon 与 Intel）、Linux deb/rpm。
+            Flatpak 由同一次 Release 工作流另外上传。
+
+            - Windows / macOS / deb / rpm 需要本机已安装 `dsh`（`npm i -g @deepseek-ai/dsh`），或设置 `DSH_DESKTOP_DSH_BIN`。
+            - Flatpak 自带 Node.js 与 `dsh`。
+            - macOS 包未公证，需在「系统设置 → 隐私与安全性」中允许打开。
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}
+
+  flatpak:
+    name: Flatpak
+    needs: [test, version, vendor]
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-47
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vendor
+          path: vendor
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: io.github.tommyfang.DshDesktop.flatpak
+          manifest-path: flatpak/io.github.tommyfang.DshDesktop.yml
+          cache-key: flatpak-gnome-47-${{ hashFiles('flatpak/io.github.tommyfang.DshDesktop.yml', 'Cargo.lock') }}
+          upload-artifact: false
+
+      - name: Attach Flatpak to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: DeepSeek Harness Desktop v${{ needs.version.outputs.version }}
+          files: io.github.tommyfang.DshDesktop.flatpak
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

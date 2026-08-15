@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.tommyfang.DshDesktop</id>
+  <name>DeepSeek Harness Desktop</name>
+  <summary>Desktop shell for DeepSeek Harness</summary>
+  <summary xml:lang="zh_CN">DeepSeek Harness 的原生桌面壳</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <developer id="io.github.tommyfang">
+    <name>TommyFang2077</name>
+  </developer>
+
+  <description>
+    <p>
+      DeepSeek Harness Desktop runs the official DeepSeek Harness (dsh) WebUI
+      in a native Tauri window. It starts dsh web, waits for its local URL and
+      embeds the UI with the system WebView. Credentials, plugins and agent
+      permissions stay in ~/.dsh.
+    </p>
+    <p>
+      The app bundles ModLens for text-only vision, a settings page at
+      设置 → 视觉模型, and the community Anchored Standard presets.
+      The Flatpak also bundles Node.js and @deepseek-ai/dsh.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.tommyfang.DshDesktop.desktop</launchable>
+
+  <url type="homepage">https://github.com/TommyFang2077/dsh-desktop</url>
+  <url type="bugtracker">https://github.com/TommyFang2077/dsh-desktop/issues</url>
+
+  <provides>
+    <binary>dsh-desktop</binary>
+  </provides>
+
+  <categories>
+    <category>Development</category>
+    <category>Utility</category>
+    <category>Network</category>
+  </categories>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-08-15">
+      <description>
+        <p>Tauri shell with an Apple-style title bar, bundled dsh, and on-launch updates.</p>
+      </description>
+    </release>
+  </releases>
+</component>

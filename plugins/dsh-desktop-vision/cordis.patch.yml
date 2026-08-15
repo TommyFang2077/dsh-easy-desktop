@@ -1,0 +1,4 @@
+# Settings page + host route for the ModLens vision engine.
+- insert:
+    - id: dsh-desktop-vision
+      name: dsh-desktop-vision

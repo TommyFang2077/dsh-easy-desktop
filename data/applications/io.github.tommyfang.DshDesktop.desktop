@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=DeepSeek Harness
+Name[zh_CN]=DeepSeek Harness
+GenericName=AI Agent Harness
+GenericName[zh_CN]=AI 智能体工作台
+Comment=Desktop shell for DeepSeek Harness
+Comment[zh_CN]=在原生桌面窗口中运行 DeepSeek Harness
+Exec=dsh-desktop
+Icon=io.github.tommyfang.DshDesktop
+Terminal=false
+Type=Application
+Categories=Development;
+Keywords=AI;DeepSeek;agent;harness;dsh;assistant;
+StartupNotify=true
+StartupWMClass=io.github.tommyfang.DshDesktop
+X-Flatpak-RenamedFrom=dsh-desktop.desktop;
