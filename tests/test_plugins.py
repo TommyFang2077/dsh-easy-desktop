@@ -48,6 +48,7 @@ class BundledAttributionTests(unittest.TestCase):
             self.assertIn("3.16.6", text)
             self.assertIn("ffb845c5480adc953392a6db6f8a98ede621174b", text)
             self.assertIn("dsh-desktop-vision", text)
+            self.assertIn("dsh-plugin", text)
         self.assertTrue((ROOT / "docs" / "licenses" / "modlens.LICENSE").is_file())
         self.assertTrue(
             (ROOT / "docs" / "licenses" / "dsh-anchored-standard.NOTICE").is_file()

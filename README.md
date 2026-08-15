@@ -14,9 +14,10 @@
   <a href="https://github.com/TommyFang2077/dsh-desktop/actions/workflows/release.yml"><img src="https://github.com/TommyFang2077/dsh-desktop/actions/workflows/release.yml/badge.svg" alt="Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT" /></a>
   <a href="https://github.com/TommyFang2077/dsh-desktop/releases/latest"><img src="https://img.shields.io/github/v/release/TommyFang2077/dsh-desktop" alt="release" /></a>
+  <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
-本仓库是第三方桌面壳，**不包含** DeepSeek Harness 源码。官方 WebUI 由本机或 Flatpak 内的 `dsh web` 提供；升级 `dsh` 后界面跟着升级，不必重打包前端。
+本仓库是第三方桌面壳，**不包含** DeepSeek Harness 源码。官方 WebUI 由本机或 Flatpak 内的 `dsh web` 提供；升级 `dsh` 后界面跟着升级，不必重打包前端。仓库已按 [DeepSeek Harness 贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 添加 GitHub topic [`dsh-plugin`](https://github.com/topics/dsh-plugin)，方便在生态里被发现。
 
 ![启动页：正在启动官方 WebUI](docs/screenshots/splash.png)
 
