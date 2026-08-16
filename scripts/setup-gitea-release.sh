@@ -45,13 +45,6 @@ AUTH="Authorization: token $GITEA_TOKEN"
 user=$(curl --fail --silent --show-error -H "$AUTH" "$GITEA_BASE_URL/api/v1/user")
 repo=$(curl --fail --silent --show-error -H "$AUTH" "$GITEA_BASE_URL/api/v1/repos/$GITEA_OWNER/$GITEA_REPO")
 printf '已认证：%s；仓库：%s\n' "$(printf '%s' "$user" | jq -r .login)" "$(printf '%s' "$repo" | jq -r .full_name)"
-case "$(printf '%s' "$repo" | jq -r .html_url)" in
-  https://*) ;;
-  *)
-    printf '%bGitea API 仍生成 HTTP 链接。请先把 app.ini 的 [server] ROOT_URL 改为 https://git.fangsiyuan.top/ 并重启 Gitea。%b\n' "$RED" "$RESET" >&2
-    exit 1
-    ;;
-esac
 [[ "$(printf '%s' "$repo" | jq -r .mirror)" == 'true' ]] || {
   printf '%b仓库不是 pull mirror，发布脚本无法同步 GitHub tag。%b\n' "$RED" "$RESET" >&2
   exit 1
