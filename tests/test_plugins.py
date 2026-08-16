@@ -7,39 +7,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class VisionPluginFilesTests(unittest.TestCase):
-    def test_client_registers_system_settings_slots(self):
-        client = (ROOT / "plugins" / "dsh-desktop-vision" / "client.js").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("settings.section", client)
-        self.assertNotIn("settings.plugins.tab", client)
-        self.assertIn("modlens-vision", client)
-        client = (ROOT / "plugins" / "dsh-desktop-vision" / "client.js").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("settings.section", client)
-        self.assertNotIn("settings.plugins.tab", client)
-        self.assertIn("modlens-vision", client)
-        host = (ROOT / "plugins" / "dsh-desktop-vision" / "index.js").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("/dsh-desktop/modlens", host)
-        self.assertIn("'OpenAI 兼容'", host)
-        self.assertNotIn("Qwen / 自建网关", host)
-        self.assertIn("https://api.openai.com/v1", host)
-        self.assertIn("https://generativelanguage.googleapis.com", host)
-        self.assertIn("https://api.anthropic.com", host)
-        self.assertIn("https://platform.openai.com/api-keys", host)
-        self.assertIn("https://aistudio.google.com/apikey", host)
-        self.assertIn("https://console.anthropic.com/settings/keys", host)
-        self.assertIn("获取 API", client)
-        self.assertNotIn("qwen-agent", client)
-        self.assertIn("example: 'gpt-4o'", host)
-        self.assertIn("example: 'gemini-3.6-flash'", host)
-        self.assertIn("example: 'claude-haiku-4-5-20251001'", host)
-        self.assertIn("example: 'gemini-3.6-flash-low'", host)
-        self.assertIn("example: 'haiku'", host)
+class VisionSettingsDocsTests(unittest.TestCase):
+    """The vision engine has exactly one documented settings surface: the
+    modlens card under 设置 → 插件 → 插件配置 (regression guard for the
+    removed duplicate dsh-desktop-vision section)."""
+
+    def test_readme_points_at_the_modlens_config_card(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("设置 → 插件 → 插件配置", readme)
+        self.assertIn("视觉引擎（ModLens）", readme)
+        self.assertNotIn("设置 → 视觉模型", readme)
 
 
 class VoicePluginFilesTests(unittest.TestCase):
@@ -106,10 +83,9 @@ class BundledAttributionTests(unittest.TestCase):
             self.assertIn("0.1.0-rc.6", text)
             self.assertIn("3.16.6", text)
             self.assertIn("ffb845c5480adc953392a6db6f8a98ede621174b", text)
-            self.assertIn("dsh-desktop-vision", text)
             self.assertIn("dsh-desktop-voice", text)
             self.assertIn("https://github.com/dsh-market/dsh-market", text)
-            self.assertIn("1.9.0", text)
+            self.assertIn("1.10.1", text)
         self.assertIn("dsh-plugin", readme)
         self.assertIn("带上眼睛", readme)
         self.assertIn("+8%", readme)

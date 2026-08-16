@@ -50,9 +50,9 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 ### 视觉模型配置：给 DeepSeek 带上眼睛
 
-纯文本 DeepSeek 配合视觉桥后，可以直接粘贴截图识别内容。内置的 **设置 → 视觉模型** 页面集中配置 OpenAI 兼容接口、Gemini API、Anthropic API、Antigravity CLI 和 Claude Code 登录；只展示当前引擎需要的字段，密钥保存在本机配置中，相关外链由系统浏览器打开。
+纯文本 DeepSeek 配合视觉桥后，可以直接粘贴截图识别内容。引擎配置在 **设置 → 插件 → 插件配置 → 视觉引擎（ModLens）**：支持 OpenAI 兼容接口、Gemini API、Anthropic API、Antigravity CLI 和 Claude Code 登录，只展示当前引擎需要的字段，密钥保存在本机 `~/.modlens/config.json` 中，相关外链由系统浏览器打开。
 
-![设置 → 视觉模型：配置 OpenAI 兼容视觉引擎](docs/screenshots/vision.webp)
+![设置 → 插件 → 插件配置：视觉引擎（ModLens）](docs/screenshots/vision.webp)
 
 ### 锚定模式与原生窗口
 
@@ -98,9 +98,8 @@ npm install -g @deepseek-ai/dsh
 | --- | --- | --- | --- |
 | DeepSeek Harness | `0.1.0-rc.6` | 官方 WebUI；Flatpak 内置，其他安装包调用本机 `dsh` | `~/.dsh` |
 | 离线语音 | `dsh-desktop-voice 0.4.0` | 麦克风、快捷键、SenseVoice / OpenAI 兼容听写 | 配置 `~/.config/dsh-desktop/voice.json`；模型在系统缓存目录 |
-| 插件市场 | `dshmarket 1.9.0` | 社区插件的发现、安装和更新 | `~/.dsh/profiles/web` |
-| 视觉配置 | `dsh-desktop-vision 0.1.4` | 配置视觉桥所使用的引擎、接口和模型 | `~/.modlens/config.json` |
-| 视觉桥 | `ModLens 3.16.6` | 让纯文本模型读取粘贴的图片；可从市场更新 | `~/.dsh/profiles/web` |
+| 插件市场 | `dshmarket 1.10.1` | 社区插件的发现、安装和更新 | `~/.dsh/profiles/web` |
+| 视觉桥 | `ModLens 3.16.6` | 让纯文本模型读取粘贴的图片；可从市场更新；引擎配置在「设置 → 插件」 | `~/.dsh/profiles/web`；配置 `~/.modlens/config.json` |
 | 锚定预设 | `ffb845c5480a` | 锚定式标准与零工具锚定式标准 | `~/.dsh/.agent-presets/` |
 
 应用启动时会同步桌面自带组件，但会保留用户从市场更新到更新版本的 ModLens。捆绑版本固定在 [Makefile](Makefile) 中。
@@ -174,7 +173,6 @@ dsh-desktop/
 ├── ui/                         # 启动页 + 注入到 WebUI 的标题栏
 ├── src-tauri/                  # Tauri 窗口、命令、deb/rpm/nsis/dmg
 ├── crates/dsh-core/            # 启动 / 更新 / ModLens / 预设 / 剪贴板
-├── plugins/dsh-desktop-vision/ # 设置 → 视觉模型
 ├── plugins/dsh-desktop-voice/  # 设置 → 语音输入 + 对话框麦克风
 ├── data/                       # .desktop、图标、AppStream
 ├── flatpak/

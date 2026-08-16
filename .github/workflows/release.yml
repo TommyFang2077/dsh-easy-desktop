@@ -41,6 +41,10 @@ jobs:
           VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          test -f "docs/release-notes/v${VERSION}.md" || {
+            echo "docs/release-notes/v${VERSION}.md is required for a release (see docs/release-notes/v0.1.1.md)" >&2
+            exit 1
+          }
           if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
             echo "Git tag ${GITHUB_REF_NAME} must match Cargo.toml version v${VERSION}" >&2
             exit 1
@@ -125,6 +129,9 @@ jobs:
         shell: bash
         run: bash scripts/vendor-native.sh
 
+      - name: Export embedded updater public key
+        run: echo "DSH_DESKTOP_UPDATER_PUBKEY=$(jq -r '.plugins.updater.pubkey' src-tauri/tauri.conf.json)" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -207,6 +214,22 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  release-notes:
+    name: Release notes
+    needs: [version, package, flatpak]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set structured release body
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: DeepSeek Harness Desktop v${{ needs.version.outputs.version }}
+          body_path: docs/release-notes/v${{ needs.version.outputs.version }}.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   publish-gitea:
     name: Publish Gitea mirror
     needs: [version, package, flatpak]
@@ -228,6 +251,7 @@ jobs:
             --output staged \
             --version "$VERSION" \
             --pub-date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --notes "$(python3 scripts/release-notes.py notes "docs/release-notes/v${VERSION}.md")" \
             --package-base-url "https://git.fangsiyuan.top/api/packages/TomHanck4/generic/dsh-easy-desktop-updater"
 
       - name: Publish Gitea release and updater feed

@@ -7,13 +7,11 @@ use serde_json::{json, Value};
 use crate::paths::{copy_tree, dsh_home, replace_symlink, BundledPaths};
 
 pub const PACKAGE: &str = "@liustack/modlens";
-pub const VISION_PACKAGE: &str = "dsh-desktop-vision";
 pub const VOICE_PACKAGE: &str = "dsh-desktop-voice";
 pub const MARKET_PACKAGE: &str = "dshmarket";
 pub const MODLENS_VERSION: &str = "3.16.6";
-const VISION_PLUGIN_VERSION: &str = "0.1.4";
 const VOICE_PLUGIN_VERSION: &str = "0.4.0";
-const MARKET_PLUGIN_VERSION: &str = "1.9.0";
+const MARKET_PLUGIN_VERSION: &str = "1.10.1";
 const MANAGED_BUNDLES_DIR: &str = ".dsh-desktop/bundles";
 pub const HIDE_PLAIN_TWINS_JS: &str = include_str!("../../../ui/inject/hide-twins.js");
 
@@ -76,13 +74,6 @@ fn bundled_plugin(paths: &BundledPaths, dirs: &[&str]) -> Option<PathBuf> {
             .find_dir(rel, "package.json")
             .filter(|p| p.join("client.js").is_file() && p.join("index.js").is_file())
     })
-}
-
-pub fn bundled_vision_plugin(paths: &BundledPaths) -> Option<PathBuf> {
-    bundled_plugin(
-        paths,
-        &["vision", "dsh-desktop-vision", "plugins/dsh-desktop-vision"],
-    )
 }
 
 fn bundled_voice_plugin(paths: &BundledPaths) -> Option<PathBuf> {
@@ -162,15 +153,6 @@ fn install_profile_plugin(
     let fallback = dsh_home().join("profiles/node_modules").join(pkg);
     let _ = replace_symlink(&fallback, &dest);
     true
-}
-
-fn install_vision_plugin(paths: &BundledPaths, profile: &Path) -> bool {
-    install_profile_plugin(
-        profile,
-        VISION_PACKAGE,
-        VISION_PLUGIN_VERSION,
-        bundled_vision_plugin(paths),
-    )
 }
 
 fn install_voice_plugin(paths: &BundledPaths, profile: &Path) -> bool {
@@ -435,15 +417,8 @@ fn ensure_modlens_inner(
     version: &str,
 ) -> std::io::Result<ModlensEnsureResult> {
     std::fs::create_dir_all(profile)?;
-    let vision_ok = install_vision_plugin(paths, profile);
     let voice_ok = install_voice_plugin(paths, profile);
     let mut packages = BTreeMap::new();
-    if vision_ok {
-        packages.insert(
-            VISION_PACKAGE.to_string(),
-            local_plugin_spec(VISION_PACKAGE),
-        );
-    }
     if voice_ok {
         packages.insert(VOICE_PACKAGE.to_string(), local_plugin_spec(VOICE_PACKAGE));
     }
@@ -613,7 +588,7 @@ ui-theme:
         std::fs::create_dir_all(&market).unwrap();
         std::fs::write(
             market.join("package.json"),
-            r#"{"name":"dshmarket","version":"1.9.0"}"#,
+            format!(r#"{{"name":"dshmarket","version":"{MARKET_PLUGIN_VERSION}"}}"#),
         )
         .unwrap();
         std::fs::write(market.join("index.js"), "export {}\n").unwrap();
@@ -625,7 +600,10 @@ ui-theme:
         let manifest: Value =
             serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
                 .unwrap();
-        assert_eq!(manifest["dependencies"]["dshmarket"], "1.9.0");
+        assert_eq!(
+            manifest["dependencies"]["dshmarket"],
+            MARKET_PLUGIN_VERSION
+        );
         assert!(manifest["dsh"]["profile"]["bundles"]
             .as_array()
             .unwrap()
@@ -639,10 +617,7 @@ ui-theme:
     #[test]
     fn bundled_local_plugins_use_file_dependencies() {
         let tmp = tempfile::TempDir::new().unwrap();
-        for (dir, name, version) in [
-            ("vision", VISION_PACKAGE, VISION_PLUGIN_VERSION),
-            ("voice", VOICE_PACKAGE, VOICE_PLUGIN_VERSION),
-        ] {
+        for (dir, name, version) in [("voice", VOICE_PACKAGE, VOICE_PLUGIN_VERSION)] {
             let plugin = tmp.path().join(dir);
             std::fs::create_dir_all(&plugin).unwrap();
             std::fs::write(
@@ -661,7 +636,7 @@ ui-theme:
         let manifest: Value =
             serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
                 .unwrap();
-        for name in [VISION_PACKAGE, VOICE_PACKAGE] {
+        for name in [VOICE_PACKAGE] {
             assert_eq!(
                 manifest["dependencies"][name],
                 format!("file:.dsh-desktop/bundles/{name}")

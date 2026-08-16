@@ -53,10 +53,9 @@ modules:
         - --share=network
     build-commands:
       - mkdir -p vendor/modlens vendor/dshmarket vendor/anchored-standard vendor/zero-anchored-standard
+      - export DSH_DESKTOP_UPDATER_PUBKEY=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['plugins']['updater']['pubkey'])")
       - cargo build --release --locked --offline || cargo build --release
       - install -Dm755 target/release/dsh-desktop ${FLATPAK_DEST}/bin/dsh-desktop
-      - mkdir -p ${FLATPAK_DEST}/share/dsh-desktop/vision
-      - cp -a plugins/dsh-desktop-vision/. ${FLATPAK_DEST}/share/dsh-desktop/vision
       - mkdir -p ${FLATPAK_DEST}/share/dsh-desktop/voice
       - cp -a plugins/dsh-desktop-voice/. ${FLATPAK_DEST}/share/dsh-desktop/voice
       - install -Dm644 data/applications/io.github.tommyfang.DshDesktop.desktop ${FLATPAK_DEST}/share/applications/io.github.tommyfang.DshDesktop.desktop

@@ -4,7 +4,7 @@ PREFIX      ?= $(HOME)/.local
 APP_ID      := io.github.tommyfang.DshDesktop
 DSH_VERSION := 0.1.0-rc.6
 MODLENS_VERSION := 3.16.6
-MARKET_VERSION := 1.9.0
+MARKET_VERSION := 1.10.1
 ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
@@ -20,6 +20,11 @@ MANIFEST    := flatpak/$(APP_ID).yml
 VERSION     := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 BUNDLE      := dist/$(APP_ID)-$(VERSION).flatpak
 BIN         := target/release/dsh-desktop
+
+# The shell updater gates the update check on an embedded public key
+# (option_env in shell_updater.rs). Single source of truth is the tauri
+# config; without it every build silently disables in-app updates.
+export DSH_DESKTOP_UPDATER_PUBKEY := $(shell jq -r '.plugins.updater.pubkey' src-tauri/tauri.conf.json)
 
 .PHONY: all run dev test vendor vendor-native vendor-anchored build install uninstall flatpak-build flatpak-export flatpak-install flatpak-bundle flatpak-run clean
 
@@ -88,11 +93,6 @@ install: build
 		rm -rf $(DESTDIR)$(PREFIX)/share/dsh-desktop/market; \
 		mkdir -p $(DESTDIR)$(PREFIX)/share/dsh-desktop; \
 		cp -R $(MARKET_DIR) $(DESTDIR)$(PREFIX)/share/dsh-desktop/market; \
-	fi
-	if [ -f plugins/dsh-desktop-vision/package.json ]; then \
-		rm -rf $(DESTDIR)$(PREFIX)/share/dsh-desktop/vision; \
-		mkdir -p $(DESTDIR)$(PREFIX)/share/dsh-desktop; \
-		cp -R plugins/dsh-desktop-vision $(DESTDIR)$(PREFIX)/share/dsh-desktop/vision; \
 	fi
 	if [ -f plugins/dsh-desktop-voice/package.json ]; then \
 		rm -rf $(DESTDIR)$(PREFIX)/share/dsh-desktop/voice; \

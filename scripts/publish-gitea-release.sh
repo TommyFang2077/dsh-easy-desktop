@@ -48,18 +48,34 @@ done
   exit 1
 }
 
+# Structured release body from docs/release-notes/v<version>.md; legacy
+# fallback only when the file is missing (the version job normally gates it).
+RELEASE_NOTES="docs/release-notes/v${RELEASE_VERSION}.md"
+if [[ -f "$RELEASE_NOTES" ]]; then
+  release_body=$(cat "$RELEASE_NOTES")
+else
+  release_body="大陆镜像安装包；文件与 GitHub Release 同源。应用内更新包由 Tauri 签名校验。"
+fi
+
 release_json=$(curl_retry curl --fail --silent --show-error -H "$AUTH" "$API/releases/tags/$RELEASE_TAG")
 release_id=$(printf '%s' "$release_json" | jq -r '.id // empty')
 if [[ -z "$release_id" ]]; then
   release_payload=$(jq -n \
     --arg tag "$RELEASE_TAG" \
     --arg name "DeepSeek Harness Desktop $RELEASE_TAG" \
-    --arg body "大陆镜像安装包；文件与 GitHub Release 同源。应用内更新包由 Tauri 签名校验。" \
+    --arg body "$release_body" \
     '{tag_name:$tag,target_commitish:$tag,name:$name,body:$body,draft:false,prerelease:false}')
   release_json=$(curl_retry curl --fail --silent --show-error \
     -X POST -H "$AUTH" -H 'Content-Type: application/json' \
     --data "$release_payload" "$API/releases")
   release_id=$(printf '%s' "$release_json" | jq -r '.id')
+else
+  # The mirror may have synced an older, terse GitHub body; keep the Gitea
+  # copy identical to the structured notes file on every publish.
+  curl_retry curl --fail --silent --show-error -X PATCH -H "$AUTH" \
+    -H 'Content-Type: application/json' \
+    --data "$(jq -n --arg body "$release_body" '{body:$body}')" \
+    "$API/releases/$release_id" >/dev/null
 fi
 
 # Versioned generic package: immutable URLs consumed by latest.json.
