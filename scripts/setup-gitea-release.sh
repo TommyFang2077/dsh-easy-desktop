@@ -76,7 +76,14 @@ gh auth status >/dev/null
 confirm '现在写入 GITEA_TOKEN 与 Tauri 签名 secrets 吗？' || exit 1
 printf '%s' "$GITEA_TOKEN" | gh secret set GITEA_TOKEN
 cat "$PRIVATE_KEY_PATH" | gh secret set TAURI_SIGNING_PRIVATE_KEY
-cat "$PUBLIC_KEY_PATH" | gh secret set DSH_DESKTOP_UPDATER_PUBKEY
+python3 - "$PUBLIC_KEY_PATH" <<'PY'
+import json, pathlib, sys
+conf = pathlib.Path("src-tauri/tauri.conf.json")
+data = json.loads(conf.read_text(encoding="utf-8"))
+data["plugins"]["updater"]["pubkey"] = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").strip()
+conf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+echo "公钥已写入 src-tauri/tauri.conf.json（随仓库提交）"
 if [[ -n "$SIGNING_PASSWORD" ]]; then
   printf '%s' "$SIGNING_PASSWORD" | gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 fi
