@@ -148,27 +148,7 @@ npx -y @deepseek-ai/dsh plugin --profile web add @liustack/modlens@3.16.6
 
 外链在系统浏览器中打开（Tauri `on_navigation`），密钥只写在本机 ModLens 配置里。
 
-### 4. AgentRQ 任务管理器插件（`agentrq`）
-
-| | |
-| --- | --- |
-| 路径 | [`plugins/agentrq/`](plugins/agentrq/) |
-| 上游 | [agentrq/agentrq](https://github.com/agentrq/agentrq) |
-| 版本 | `0.2.1`（钉在 [Makefile](Makefile) 的 `AGENTRQ_VERSION`） |
-| 许可证 | Apache-2.0 · [docs/licenses/agentrq.LICENSE](docs/licenses/agentrq.LICENSE) |
-| 作用 | 让 DeepSeek Harness 直接管理 AgentRQ 任务：创建、获取、更新状态、回复、获取工作区信息等。支持实时推送任务，无需离开 Harness |
-| 安装位置 | 启动时复制到 `~/.dsh/profiles/web/node_modules/agentrq` |
-
-**AgentRQ** 是一个人类在环的任务管理器——你可以在 AgentRQ 工作区中给 Agent 分配任务，这个插件让 Harness 直接接收任务并执行，完成任务后更新状态。
-
-未配置 endpoint 时插件保持空闲，不影响 ModLens 和其它内置插件。配置任一即可启用：
-
-- 环境变量 `AGENTRQ_WORKSPACE_MCP_URL`（含 `?token=`）
-- 或在 profile 的 `cordis.patch.yml` 里写 `url`
-
-详见 [`plugins/agentrq/README.md`](plugins/agentrq/README.md)。
-
-### 5. Anchored Standard 预设
+### 4. Anchored Standard 预设
 
 | | |
 | --- | --- |
@@ -243,7 +223,6 @@ dsh-desktop/
 ├── src-tauri/                  # Tauri 窗口、命令、deb/rpm/nsis/dmg
 ├── crates/dsh-core/            # 启动 / 更新 / ModLens / 预设 / 剪贴板
 ├── plugins/dsh-desktop-vision/ # 设置 → 视觉模型
-├── plugins/agentrq/            # AgentRQ 任务管理器
 ├── data/                       # .desktop、图标、AppStream
 ├── flatpak/
 ├── docs/screenshots/           # README 截图

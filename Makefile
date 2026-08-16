@@ -4,7 +4,6 @@ PREFIX      ?= $(HOME)/.local
 APP_ID      := io.github.tommyfang.DshDesktop
 DSH_VERSION := 0.1.0-rc.6
 MODLENS_VERSION := 3.16.6
-AGENTRQ_VERSION := 0.2.1
 ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
@@ -84,12 +83,6 @@ install: build
 		rm -rf $(DESTDIR)$(PREFIX)/share/dsh-desktop/vision; \
 		mkdir -p $(DESTDIR)$(PREFIX)/share/dsh-desktop; \
 		cp -R plugins/dsh-desktop-vision $(DESTDIR)$(PREFIX)/share/dsh-desktop/vision; \
-	fi
-	if [ -f plugins/agentrq/lib/index.js ]; then \
-		rm -rf $(DESTDIR)$(PREFIX)/share/dsh-desktop/agentrq; \
-		mkdir -p $(DESTDIR)$(PREFIX)/share/dsh-desktop/agentrq/lib; \
-		cp plugins/agentrq/package.json plugins/agentrq/cordis.patch.yml plugins/agentrq/LICENSE plugins/agentrq/README.md $(DESTDIR)$(PREFIX)/share/dsh-desktop/agentrq/; \
-		cp -R plugins/agentrq/lib/. $(DESTDIR)$(PREFIX)/share/dsh-desktop/agentrq/lib/; \
 	fi
 	if [ -f $(ANCHORED_DIR)/preset.yml ]; then \
 		rm -rf $(DESTDIR)$(PREFIX)/share/dsh-desktop/anchored-standard; \
