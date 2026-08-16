@@ -170,6 +170,25 @@ pub fn file_from_bytes(name: String, mime: String, data: Vec<u8>) -> Option<Clip
     })
 }
 
+pub fn detect_image_mime(data: &[u8]) -> Option<&'static str> {
+    if data.len() >= 8 && data.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Some("image/png");
+    }
+    if data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
+        return Some("image/jpeg");
+    }
+    if data.len() >= 12 && data.starts_with(b"RIFF") && &data[8..12] == b"WEBP" {
+        return Some("image/webp");
+    }
+    if data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a") {
+        return Some("image/gif");
+    }
+    if data.len() >= 2 && data.starts_with(b"BM") {
+        return Some("image/bmp");
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,9 +206,22 @@ mod tests {
     #[test]
     fn ingest_js_defines_helper() {
         assert!(INGEST_JS.contains("window.__dshDesktopPasteFiles"));
+        assert!(INGEST_JS.contains("window.__dshDesktopIngestFiles"));
+        assert!(INGEST_JS.contains("/modlens/paste"));
+        assert!(INGEST_JS.contains("ClipboardEvent"));
         assert!(INGEST_JS.contains("DragEvent"));
         assert!(INGEST_JS.contains("new File"));
-        assert!(INGEST_JS.contains("text/uri-list"));
+        assert!(INGEST_JS.contains("__dshDesktopLooksLikeImagePath"));
+    }
+
+    #[test]
+    fn sniffs_image_magic() {
+        assert_eq!(
+            detect_image_mime(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 1]),
+            Some("image/png")
+        );
+        assert_eq!(detect_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("image/jpeg"));
+        assert_eq!(detect_image_mime(b"not-an-image"), None);
     }
 
     #[test]

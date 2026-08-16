@@ -36,6 +36,22 @@ class VisionPluginFilesTests(unittest.TestCase):
         self.assertIn("example: 'haiku'", host)
 
 
+class ClipboardIngestTests(unittest.TestCase):
+    def test_inject_delivers_images_as_paste_not_only_drop(self):
+        ingest = (ROOT / "ui" / "inject" / "ingest.js").read_text(encoding="utf-8")
+        chrome = (ROOT / "ui" / "inject" / "chrome.js").read_text(encoding="utf-8")
+        self.assertIn("window.__dshDesktopIngestFiles", ingest)
+        self.assertIn("/modlens/paste", ingest)
+        self.assertIn("ClipboardEvent", ingest)
+        self.assertIn("navigator.clipboard.read", chrome)
+        self.assertIn("read_clipboard_images", chrome)
+        self.assertIn("__dshDesktopIngesting", chrome)
+        self.assertNotIn(
+            'item.kind === "file" && item.getAsFile()',
+            chrome,
+        )
+
+
 class BundledAttributionTests(unittest.TestCase):
     def test_readme_cites_upstream_plugins(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

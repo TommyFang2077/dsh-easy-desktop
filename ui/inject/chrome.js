@@ -146,23 +146,76 @@
     inject();
   }
 
+  function clipboardText(e, type) {
+    try {
+      return e.clipboardData ? (e.clipboardData.getData(type) || "") : "";
+    } catch (err) {
+      return "";
+    }
+  }
+
+  async function readAsyncClipboardImages() {
+    if (!navigator.clipboard || !navigator.clipboard.read) return [];
+    try {
+      const items = await navigator.clipboard.read();
+      const files = [];
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.indexOf("image/") !== 0) continue;
+          const blob = await item.getType(type);
+          if (!blob || !blob.size) continue;
+          const ext = (type.split("/")[1] || "png").replace("jpeg", "jpg");
+          files.push(new File([blob], "clipboard." + ext, { type: blob.type || type }));
+        }
+      }
+      return files;
+    } catch (err) {
+      return [];
+    }
+  }
+
   const harness = /^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname);
   if (harness && location.protocol.indexOf("http") === 0) {
     document.addEventListener("paste", async function (e) {
-      const t = api();
-      if (!t || !t.core) return;
+      if (window.__dshDesktopIngesting) return;
+      const ingest = window.__dshDesktopIngestFiles;
+      const fromEvent = window.__dshDesktopImageFilesFromEvent;
+      const pathLike = window.__dshDesktopLooksLikeImagePath;
+      if (!ingest) return;
       try {
-        const items = e.clipboardData ? Array.from(e.clipboardData.items) : [];
-        if (items.some(function (item) { return item.kind === "file" && item.getAsFile(); })) {
-          return;
+        const local = fromEvent ? fromEvent(e) : [];
+        const text = clipboardText(e, "text/plain");
+        const uris = clipboardText(e, "text/uri-list");
+        const steal = local.length > 0
+          || (pathLike && (pathLike(text) || pathLike(uris)))
+          || !String(text).trim();
+        if (!steal) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        window.__dshDesktopIngesting = true;
+        try {
+          if (local.length) {
+            await ingest(local);
+            return;
+          }
+          let files = await readAsyncClipboardImages();
+          if (!files.length) {
+            const t = api();
+            if (t && t.core) {
+              const payload = await t.core.invoke("read_clipboard_images");
+              if (payload && payload.length && window.__dshDesktopPasteFiles) {
+                await window.__dshDesktopPasteFiles(payload);
+                return;
+              }
+            }
+          }
+          if (files.length) await ingest(files);
+        } finally {
+          window.__dshDesktopIngesting = false;
         }
-        const files = await t.core.invoke("read_clipboard_images");
-        if (files && files.length) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          if (window.__dshDesktopPasteFiles) window.__dshDesktopPasteFiles(files);
-        }
-      } catch (err) {}
+      } catch (err) {
+        window.__dshDesktopIngesting = false;
+      }
     }, true);
   }
 })();
