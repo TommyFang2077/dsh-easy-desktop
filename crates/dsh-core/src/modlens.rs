@@ -9,7 +9,7 @@ use crate::paths::{copy_tree, dsh_home, replace_symlink, BundledPaths};
 pub const PACKAGE: &str = "@liustack/modlens";
 pub const VISION_PACKAGE: &str = "dsh-desktop-vision";
 pub const MODLENS_VERSION: &str = "3.16.6";
-pub const HIDE_PLAIN_TWINS_JS: &str = include_str!("../../../ui/inject/hide-twins.js");
+pub const AGENTRQ_PACKAGE: &str = "agentrq";
 
 pub const MANAGED_OVERLAY: &str = "\
 # dsh-desktop manages this modlens overlay (wrap every text-only model).
@@ -55,11 +55,26 @@ pub fn bundled_vision_plugin(paths: &BundledPaths) -> Option<PathBuf> {
         .or_else(|| paths.find_dir("plugins/dsh-desktop-vision", "package.json"))
         .filter(|p| p.join("client.js").is_file())
 }
+pub fn bundled_agentrq_plugin(paths: &BundledPaths) -> Option<PathBuf> {
+    paths.find_dir("agentrq", "package.json")
+        .or_else(|| paths.find_dir("plugins/agentrq", "package.json"))
+}
 
 pub fn bundled_modlens_prefix(paths: &BundledPaths) -> Option<PathBuf> {
     paths
         .find_dir("modlens", "node_modules/@liustack/modlens")
         .or_else(|| paths.find_dir("vendor/modlens", "node_modules/@liustack/modlens"))
+}
+fn install_agentrq_plugin(paths: &BundledPaths, profile: &Path) -> bool {
+    let Some(src) = bundled_agentrq_plugin(paths) else {
+        return false;
+    };
+    let dest = profile.join("node_modules").join(AGENTRQ_PACKAGE);
+    if let Err(e) = copy_tree(&src, &dest, true) {
+        eprintln!("Failed to install agentrq plugin: {e}");
+        return false;
+    }
+    true
 }
 
 fn install_into_profile(src_prefix: &Path, profile: &Path) -> std::io::Result<()> {
@@ -319,11 +334,14 @@ fn ensure_modlens_inner(
     installed: Option<String>,
     version: &str,
 ) -> std::io::Result<ModlensEnsureResult> {
-    std::fs::create_dir_all(profile)?;
     let vision_ok = install_vision_plugin(paths, profile);
+    let agentrq_ok = install_agentrq_plugin(paths, profile);
     let mut packages = BTreeMap::new();
     if vision_ok {
         packages.insert(VISION_PACKAGE.to_string(), "0.1.0".into());
+    }
+    if agentrq_ok {
+        packages.insert(AGENTRQ_PACKAGE.to_string(), "0.2.1".into());
     }
     if src.is_none() && installed.is_none() {
         if !packages.is_empty() {

@@ -147,8 +147,23 @@ npx -y @deepseek-ai/dsh plugin --profile web add @liustack/modlens@3.16.6
 | Claude CLI | 本机 CLI，无需填 URL | [code.claude.com](https://code.claude.com) |
 
 外链在系统浏览器中打开（Tauri `on_navigation`），密钥只写在本机 ModLens 配置里。
+### 4. AgentRQ 任务管理器插件（`agentrq`）
 
-### 4. Anchored Standard 预设
+| | |
+| --- | --- |
+| 路径 | [`plugins/agentrq/`](plugins/agentrq/) |
+| 上游 | [agentrq/agentrq](https://github.com/agentrq/agentrq) |
+| 版本 | `0.2.1` |
+| 许可证 | Apache 2.0（AgentRQ）· 与本仓库相同（MIT） |
+| 作用 | 让 DeepSeek Harness 直接管理 AgentRQ 任务：创建、获取、更新状态、回复、获取工作区信息等。支持实时推送任务，无需离开 Harness |
+
+**AgentRQ** 是一个人类在环的任务管理器——你可以在 AgentRQ 工作区中给 Agent 分配任务，这个插件让 Harness 直接接收任务并执行，完成任务后更新状态。
+
+安装后在 profile 的 `cordis.patch.yml` 中配置 AgentRQ workspace endpoint 即可使用。
+
+### 6. 零工具锚定式标准预设
+
+### 5. Anchored Standard 预设
 
 | | |
 | --- | --- |
