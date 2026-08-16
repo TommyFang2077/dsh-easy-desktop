@@ -55,6 +55,9 @@ modules:
       - install -Dm755 target/release/dsh-desktop ${FLATPAK_DEST}/bin/dsh-desktop
       - mkdir -p ${FLATPAK_DEST}/share/dsh-desktop/vision
       - cp -a plugins/dsh-desktop-vision/. ${FLATPAK_DEST}/share/dsh-desktop/vision
+      - mkdir -p ${FLATPAK_DEST}/share/dsh-desktop/agentrq/lib
+      - cp -a plugins/agentrq/package.json plugins/agentrq/cordis.patch.yml plugins/agentrq/LICENSE plugins/agentrq/README.md ${FLATPAK_DEST}/share/dsh-desktop/agentrq/
+      - cp -a plugins/agentrq/lib/. ${FLATPAK_DEST}/share/dsh-desktop/agentrq/lib
       - install -Dm644 data/applications/io.github.tommyfang.DshDesktop.desktop ${FLATPAK_DEST}/share/applications/io.github.tommyfang.DshDesktop.desktop
       - install -Dm644 data/metainfo/io.github.tommyfang.DshDesktop.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.tommyfang.DshDesktop.metainfo.xml
       - for size in 16 24 32 48 64 128 256 512; do install -Dm644 data/icons/hicolor/${size}x${size}/apps/io.github.tommyfang.DshDesktop.png ${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/io.github.tommyfang.DshDesktop.png; done

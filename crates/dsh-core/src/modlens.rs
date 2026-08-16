@@ -9,7 +9,12 @@ use crate::paths::{copy_tree, dsh_home, replace_symlink, BundledPaths};
 pub const PACKAGE: &str = "@liustack/modlens";
 pub const VISION_PACKAGE: &str = "dsh-desktop-vision";
 pub const MODLENS_VERSION: &str = "3.16.6";
+pub const HIDE_PLAIN_TWINS_JS: &str = include_str!("../../../ui/inject/hide-twins.js");
 pub const AGENTRQ_PACKAGE: &str = "agentrq";
+pub const AGENTRQ_VERSION: &str = "0.2.1";
+
+const AGENTRQ_PACKAGE_FILES: &[&str] =
+    &["package.json", "cordis.patch.yml", "LICENSE", "README.md"];
 
 pub const MANAGED_OVERLAY: &str = "\
 # dsh-desktop manages this modlens overlay (wrap every text-only model).
@@ -55,9 +60,12 @@ pub fn bundled_vision_plugin(paths: &BundledPaths) -> Option<PathBuf> {
         .or_else(|| paths.find_dir("plugins/dsh-desktop-vision", "package.json"))
         .filter(|p| p.join("client.js").is_file())
 }
+
 pub fn bundled_agentrq_plugin(paths: &BundledPaths) -> Option<PathBuf> {
-    paths.find_dir("agentrq", "package.json")
+    paths
+        .find_dir("agentrq", "package.json")
         .or_else(|| paths.find_dir("plugins/agentrq", "package.json"))
+        .filter(|p| p.join("lib/index.js").is_file())
 }
 
 pub fn bundled_modlens_prefix(paths: &BundledPaths) -> Option<PathBuf> {
@@ -65,16 +73,36 @@ pub fn bundled_modlens_prefix(paths: &BundledPaths) -> Option<PathBuf> {
         .find_dir("modlens", "node_modules/@liustack/modlens")
         .or_else(|| paths.find_dir("vendor/modlens", "node_modules/@liustack/modlens"))
 }
+
 fn install_agentrq_plugin(paths: &BundledPaths, profile: &Path) -> bool {
     let Some(src) = bundled_agentrq_plugin(paths) else {
         return false;
     };
     let dest = profile.join("node_modules").join(AGENTRQ_PACKAGE);
-    if let Err(e) = copy_tree(&src, &dest, true) {
-        eprintln!("Failed to install agentrq plugin: {e}");
+    let up_to_date =
+        dest.join("lib/index.js").is_file() && read_pkg_version(&dest) == read_pkg_version(&src);
+    if !up_to_date && copy_agentrq_package(&src, &dest).is_err() {
         return false;
     }
+    let fallback = dsh_home()
+        .join("profiles/node_modules")
+        .join(AGENTRQ_PACKAGE);
+    let _ = replace_symlink(&fallback, &dest);
     true
+}
+
+fn copy_agentrq_package(src: &Path, dest: &Path) -> std::io::Result<()> {
+    if dest.exists() {
+        std::fs::remove_dir_all(dest)?;
+    }
+    std::fs::create_dir_all(dest)?;
+    for name in AGENTRQ_PACKAGE_FILES {
+        let from = src.join(name);
+        if from.is_file() {
+            std::fs::copy(&from, dest.join(name))?;
+        }
+    }
+    copy_tree(&src.join("lib"), &dest.join("lib"), true)
 }
 
 fn install_into_profile(src_prefix: &Path, profile: &Path) -> std::io::Result<()> {
@@ -112,7 +140,9 @@ fn install_vision_plugin(paths: &BundledPaths, profile: &Path) -> bool {
     if !up_to_date && copy_tree(&src, &dest, true).is_err() {
         return false;
     }
-    let fallback = dsh_home().join("profiles/node_modules").join(VISION_PACKAGE);
+    let fallback = dsh_home()
+        .join("profiles/node_modules")
+        .join(VISION_PACKAGE);
     let _ = replace_symlink(&fallback, &dest);
     true
 }
@@ -334,6 +364,7 @@ fn ensure_modlens_inner(
     installed: Option<String>,
     version: &str,
 ) -> std::io::Result<ModlensEnsureResult> {
+    std::fs::create_dir_all(profile)?;
     let vision_ok = install_vision_plugin(paths, profile);
     let agentrq_ok = install_agentrq_plugin(paths, profile);
     let mut packages = BTreeMap::new();
@@ -341,7 +372,10 @@ fn ensure_modlens_inner(
         packages.insert(VISION_PACKAGE.to_string(), "0.1.0".into());
     }
     if agentrq_ok {
-        packages.insert(AGENTRQ_PACKAGE.to_string(), "0.2.1".into());
+        let version = bundled_agentrq_plugin(paths)
+            .and_then(|p| read_pkg_version(&p))
+            .unwrap_or_else(|| AGENTRQ_VERSION.to_string());
+        packages.insert(AGENTRQ_PACKAGE.to_string(), version);
     }
     if src.is_none() && installed.is_none() {
         if !packages.is_empty() {
@@ -449,7 +483,8 @@ mod tests {
 
     #[test]
     fn keeps_other_entries() {
-        let original = "- id: other\n  config:\n    x: 1\n- id: modlens\n  config:\n    autoRead: false\n";
+        let original =
+            "- id: other\n  config:\n    x: 1\n- id: modlens\n  config:\n    autoRead: false\n";
         let text = ensure_modlens_overlay(original);
         assert!(text.contains("id: other"));
         assert!(text.contains("autoRead: true"));
@@ -479,7 +514,8 @@ ui-theme:
 
     #[test]
     fn already_wrapped_is_left_alone() {
-        let original = "agent-default-model:\n  provider: deepseek-modlens\n  model: deepseek-v4-pro\n";
+        let original =
+            "agent-default-model:\n  provider: deepseek-modlens\n  model: deepseek-v4-pro\n";
         assert_eq!(remap_default_text_model(original), original);
     }
 
@@ -487,5 +523,45 @@ ui-theme:
     fn hide_twins_script_targets_suffix() {
         assert!(HIDE_PLAIN_TWINS_JS.contains("(modlens vision)"));
         assert!(HIDE_PLAIN_TWINS_JS.contains("MutationObserver"));
+    }
+
+    #[test]
+    fn agentrq_bundle_requires_built_entry() {
+        let root = tempfile::tempdir().unwrap();
+        let src = root.path().join("agentrq");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(
+            src.join("package.json"),
+            r#"{"name":"agentrq","version":"0.2.1"}"#,
+        )
+        .unwrap();
+        let paths = BundledPaths::default().with_resource_dir(root.path().to_path_buf());
+        assert!(bundled_agentrq_plugin(&paths).is_none());
+    }
+
+    #[test]
+    fn agentrq_install_copies_package_not_sources() {
+        let root = tempfile::tempdir().unwrap();
+        let src = root.path().join("agentrq");
+        std::fs::create_dir_all(src.join("lib")).unwrap();
+        std::fs::create_dir_all(src.join("src")).unwrap();
+        std::fs::write(
+            src.join("package.json"),
+            r#"{"name":"agentrq","version":"0.2.1"}"#,
+        )
+        .unwrap();
+        std::fs::write(src.join("lib/index.js"), "export const name = 'agentrq'\n").unwrap();
+        std::fs::write(src.join("src/index.ts"), "should not be copied\n").unwrap();
+        std::fs::write(src.join("cordis.patch.yml"), "- insert: []\n").unwrap();
+
+        let profile = tempfile::tempdir().unwrap();
+        let paths = BundledPaths::default().with_resource_dir(root.path().to_path_buf());
+        assert!(install_agentrq_plugin(&paths, profile.path()));
+
+        let dest = profile.path().join("node_modules/agentrq");
+        assert!(dest.join("lib/index.js").is_file());
+        assert!(dest.join("package.json").is_file());
+        assert!(dest.join("cordis.patch.yml").is_file());
+        assert!(!dest.join("src").exists());
     }
 }

@@ -1,6 +1,7 @@
 {
   "name": "agentrq",
   "version": "0.2.1",
+  "private": true,
   "description": "AgentRQ task manager for DeepSeek Harness: create, manage, and auto-pull AgentRQ tasks without leaving the harness",
   "keywords": [
     "dsh-plugin",
@@ -12,7 +13,7 @@
   "homepage": "https://github.com/TommyFang2077/dsh-desktop/tree/main/plugins/agentrq",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/agentrq/agentrq.git",
+    "url": "git+https://github.com/TommyFang2077/dsh-desktop.git",
     "directory": "plugins/agentrq"
   },
   "license": "Apache-2.0",

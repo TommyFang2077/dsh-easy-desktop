@@ -36,6 +36,7 @@
     ],
     "resources": [
       "../plugins/dsh-desktop-vision/",
+      "../plugins/agentrq/",
       "../vendor/modlens/",
       "../vendor/anchored-standard/",
       "../vendor/zero-anchored-standard/"

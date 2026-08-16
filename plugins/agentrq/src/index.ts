@@ -53,6 +53,13 @@ type AgentCleanup = () => void | Promise<void>
  * @param config - validated plugin configuration.
  */
 export function apply(ctx: Context, config: Config): void {
+  if (config.url.trim() === '') {
+    ctx.logger.info(
+      'agentrq: no workspace url; set AGENTRQ_WORKSPACE_MCP_URL or config.url to enable',
+    )
+    return
+  }
+
   // The bridge is a child fiber rather than a sibling row, so the workspace
   // endpoint is configured once and the two halves share one lifetime: our
   // disposal and HMR reload take the bridge with them.

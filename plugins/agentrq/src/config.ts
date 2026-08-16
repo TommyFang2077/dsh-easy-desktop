@@ -25,7 +25,8 @@ export interface Config {
   /**
    * The workspace's AgentRQ MCP endpoint. Copy it from Workspace Settings —
    * the URL there already carries `?token=…`, which is how AgentRQ
-   * authenticates a headless client.
+   * authenticates a headless client. Empty keeps the plugin loaded but idle
+   * so a desktop profile can ship the bundle without an endpoint.
    */
   url: string
   /**
@@ -81,7 +82,7 @@ export interface Config {
 }
 
 export const Config = Schema.object({
-  url: Schema.string().required().description('AgentRQ workspace MCP endpoint, including its ?token= credential.'),
+  url: Schema.string().default('').description('AgentRQ workspace MCP endpoint, including its ?token= credential. Empty keeps the plugin idle.'),
   token: Schema.string().default('').description('Optional bearer token, when the URL carries no ?token= credential.'),
   mountBridge: Schema.boolean().default(true).description('Mount the MCP bridge that gives the model AgentRQ\'s tools.'),
   serverName: Schema.string().default('agentrq').description('Namespace for the bridged tools: mcp__<serverName>__reply, and so on.'),

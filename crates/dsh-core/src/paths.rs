@@ -42,7 +42,7 @@ pub fn is_flatpak() -> bool {
     Path::new("/.flatpak-info").exists()
 }
 
-/// Roots that may contain bundled ModLens / presets / vision plugin.
+/// Roots that may contain bundled ModLens / presets / vision / AgentRQ plugins.
 ///
 /// Search order: extra roots (Tauri resource dir), `$XDG_DATA_HOME/dsh-desktop`,
 /// `/app/share/dsh-desktop`, `/usr/share/dsh-desktop`, `~/.local/share/dsh-desktop`,

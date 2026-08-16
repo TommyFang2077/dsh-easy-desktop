@@ -12,5 +12,8 @@ export default defineConfig({
   target: 'node20',
   dts: true,
   clean: true,
-  external: [/^@deepseek-ai\//, /^@modelcontextprotocol\//],
+  // Harness packages stay external. The MCP SDK is inlined so a copied
+  // `lib/index.js` loads without a profile-local node_modules install.
+  external: [/^@deepseek-ai\//],
+  noExternal: [/^@modelcontextprotocol\//],
 })
