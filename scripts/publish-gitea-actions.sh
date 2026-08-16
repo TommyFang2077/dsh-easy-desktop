@@ -24,8 +24,9 @@ echo "target: $RELEASE_TAG ($VERSION)"
 echo "gitea:   $GITEA_BASE_URL"
 
 if curl -fsS -H "Authorization: token $GITEA_TOKEN" \
-  "$GITEA_BASE_URL/api/packages/$REPO_OWNER/generic/dsh-easy-desktop-updater/$VERSION/dsh-easy-desktop_${VERSION}_darwin_aarch64.app.tar.gz" >/dev/null 2>&1; then
-  echo "version $VERSION already published on the Gitea package feed; nothing to do"
+  "$GITEA_BASE_URL/api/packages/$REPO_OWNER/generic/dsh-easy-desktop-updater/latest/latest.json" -o /tmp/latest.json 2>/dev/null \
+  && [ "$(jq -r '.version' /tmp/latest.json)" = "$VERSION" ]; then
+  echo "version $VERSION already published on the Gitea feed; nothing to do"
   exit 0
 fi
 

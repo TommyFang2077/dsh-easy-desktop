@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Download publish scripts
         run: |
-          BASE=https://raw.githubusercontent.com/TommyFang2077/dsh-easy-desktop/main
+          BASE=https://raw.githubusercontent.com/TommyFang2077/dsh-easy-desktop/$GITHUB_SHA
           curl -fsSL -o build-gitea-update.py "$BASE/scripts/build-gitea-update.py"
           curl -fsSL -o publish-gitea-release.sh "$BASE/scripts/publish-gitea-release.sh"
           curl -fsSL -o publish-gitea-actions.sh "$BASE/scripts/publish-gitea-actions.sh"
