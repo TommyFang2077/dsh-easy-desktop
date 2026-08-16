@@ -1,11 +1,13 @@
 use std::io::Cursor;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use dsh_core::clipboard::{
-    file_from_bytes, filename_for_mime, files_from_paths, parse_uri_list, ClipboardFile,
+    detect_image_mime, file_from_bytes, filename_for_mime, files_from_paths, parse_uri_list,
+    ClipboardFile,
 };
 use dsh_core::launcher::{DshLauncher, DshProcess, URL_TIMEOUT_SECONDS};
 use dsh_core::modlens::ensure_modlens;
@@ -134,39 +136,93 @@ fn open_in_browser(state: tauri::State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn read_clipboard_images() -> Result<Vec<ClipboardFile>, String> {
-    read_images().map_err(|e| e.to_string())
+fn read_clipboard_images(app: AppHandle) -> Result<Vec<ClipboardFile>, String> {
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    app.run_on_main_thread(move || {
+        let _ = tx.send(read_images());
+    })
+    .map_err(|e| e.to_string())?;
+    rx.recv().map_err(|e| e.to_string())?
 }
 
 fn read_images() -> Result<Vec<ClipboardFile>, String> {
-    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
-    if let Ok(img) = clipboard.get_image() {
-        let width = img.width as u32;
-        let height = img.height as u32;
-        let bytes = img.bytes.into_owned();
-        if let Some(buffer) = image::RgbaImage::from_raw(width, height, bytes) {
-            let mut png = Vec::new();
-            if buffer
-                .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
-                .is_ok()
-            {
-                if let Some(file) = file_from_bytes(
-                    filename_for_mime("image/png", 0),
-                    "image/png".into(),
-                    png,
-                ) {
-                    return Ok(vec![file]);
-                }
-            }
-        }
+    if let Some(file) = read_native_image() {
+        return Ok(vec![file]);
     }
-    if let Ok(text) = clipboard.get_text() {
-        let loaded = files_from_paths(parse_uri_list(&text));
-        if !loaded.is_empty() {
-            return Ok(loaded);
-        }
+    if let Some(file) = read_arboard_image() {
+        return Ok(vec![file]);
+    }
+    if let Some(file) = read_cli_image() {
+        return Ok(vec![file]);
+    }
+    if let Some(files) = read_arboard_image_paths() {
+        return Ok(files);
     }
     Ok(Vec::new())
+}
+
+#[cfg(target_os = "linux")]
+fn read_native_image() -> Option<ClipboardFile> {
+    let clipboard = gtk::Clipboard::get(&gdk::SELECTION_CLIPBOARD);
+    let pixbuf = clipboard.wait_for_image()?;
+    let png = pixbuf.save_to_bufferv("png", &[]).ok()?;
+    file_from_bytes(filename_for_mime("image/png", 0), "image/png".into(), png)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn read_native_image() -> Option<ClipboardFile> {
+    None
+}
+
+fn read_arboard_image() -> Option<ClipboardFile> {
+    let mut clipboard = arboard::Clipboard::new().ok()?;
+    let img = clipboard.get_image().ok()?;
+    let width = img.width as u32;
+    let height = img.height as u32;
+    let bytes = img.bytes.into_owned();
+    let buffer = image::RgbaImage::from_raw(width, height, bytes)?;
+    let mut png = Vec::new();
+    buffer
+        .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+        .ok()?;
+    file_from_bytes(filename_for_mime("image/png", 0), "image/png".into(), png)
+}
+
+fn read_arboard_image_paths() -> Option<Vec<ClipboardFile>> {
+    let mut clipboard = arboard::Clipboard::new().ok()?;
+    let text = clipboard.get_text().ok()?;
+    let loaded = files_from_paths(parse_uri_list(&text));
+    if loaded.is_empty() {
+        None
+    } else {
+        Some(loaded)
+    }
+}
+
+fn read_cli_image() -> Option<ClipboardFile> {
+    const ATTEMPTS: &[(&str, &[&str])] = &[
+        ("wl-paste", &["--type", "image/png"]),
+        ("wl-paste", &["--type", "image/jpeg"]),
+        ("wl-paste", &["--type", "image/webp"]),
+        ("xclip", &["-selection", "clipboard", "-t", "image/png", "-o"]),
+        ("xclip", &["-selection", "clipboard", "-t", "image/jpeg", "-o"]),
+        ("xclip", &["-selection", "clipboard", "-t", "image/webp", "-o"]),
+    ];
+    for (bin, args) in ATTEMPTS {
+        let output = match Command::new(bin).args(*args).output() {
+            Ok(output) => output,
+            Err(_) => continue,
+        };
+        if !output.status.success() || output.stdout.is_empty() {
+            continue;
+        }
+        let mime = detect_image_mime(&output.stdout).unwrap_or("image/png");
+        if let Some(file) = file_from_bytes(filename_for_mime(mime, 0), mime.into(), output.stdout)
+        {
+            return Some(file);
+        }
+    }
+    None
 }
 
 fn is_internal(url: &Url) -> bool {

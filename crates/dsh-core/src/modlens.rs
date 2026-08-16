@@ -97,7 +97,9 @@ fn install_vision_plugin(paths: &BundledPaths, profile: &Path) -> bool {
     if !up_to_date && copy_tree(&src, &dest, true).is_err() {
         return false;
     }
-    let fallback = dsh_home().join("profiles/node_modules").join(VISION_PACKAGE);
+    let fallback = dsh_home()
+        .join("profiles/node_modules")
+        .join(VISION_PACKAGE);
     let _ = replace_symlink(&fallback, &dest);
     true
 }
@@ -431,7 +433,8 @@ mod tests {
 
     #[test]
     fn keeps_other_entries() {
-        let original = "- id: other\n  config:\n    x: 1\n- id: modlens\n  config:\n    autoRead: false\n";
+        let original =
+            "- id: other\n  config:\n    x: 1\n- id: modlens\n  config:\n    autoRead: false\n";
         let text = ensure_modlens_overlay(original);
         assert!(text.contains("id: other"));
         assert!(text.contains("autoRead: true"));
@@ -461,7 +464,8 @@ ui-theme:
 
     #[test]
     fn already_wrapped_is_left_alone() {
-        let original = "agent-default-model:\n  provider: deepseek-modlens\n  model: deepseek-v4-pro\n";
+        let original =
+            "agent-default-model:\n  provider: deepseek-modlens\n  model: deepseek-v4-pro\n";
         assert_eq!(remap_default_text_model(original), original);
     }
 
