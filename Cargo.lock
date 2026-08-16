@@ -949,7 +949,7 @@ dependencies = [
 
 [[package]]
 name = "dsh-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "dirs",
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "dsh-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arboard",
  "dsh-core",
