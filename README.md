@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TommyFang2077/dsh-desktop/releases/latest"><b>下载</b></a> ·
+  <a href="https://github.com/TommyFang2077/dsh-easy-desktop/releases/latest"><b>下载</b></a> ·
   <a href="https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest"><b>大陆镜像</b></a> ·
   <a href="#核心体验">核心体验</a> ·
   <a href="#三十秒上手">三十秒上手</a> ·
@@ -21,10 +21,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TommyFang2077/dsh-desktop/actions/workflows/ci.yml"><img src="https://github.com/TommyFang2077/dsh-desktop/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/TommyFang2077/dsh-desktop/actions/workflows/release.yml"><img src="https://github.com/TommyFang2077/dsh-desktop/actions/workflows/release.yml/badge.svg" alt="Release" /></a>
+  <a href="https://github.com/TommyFang2077/dsh-easy-desktop/actions/workflows/ci.yml"><img src="https://github.com/TommyFang2077/dsh-easy-desktop/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/TommyFang2077/dsh-easy-desktop/actions/workflows/release.yml"><img src="https://github.com/TommyFang2077/dsh-easy-desktop/actions/workflows/release.yml/badge.svg" alt="Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT" /></a>
-  <a href="https://github.com/TommyFang2077/dsh-desktop/releases/latest"><img src="https://img.shields.io/github/v/release/TommyFang2077/dsh-desktop" alt="release" /></a>
+  <a href="https://github.com/TommyFang2077/dsh-easy-desktop/releases/latest"><img src="https://img.shields.io/github/v/release/TommyFang2077/dsh-easy-desktop" alt="release" /></a>
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
@@ -64,7 +64,7 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 ## 三十秒上手
 
-从 [GitHub Releases](https://github.com/TommyFang2077/dsh-desktop/releases/latest) 下载对应平台的安装包；中国大陆网络可改用 [Gitea 发行版镜像](https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest)。壳会在启动时从该镜像检查自身更新，下载完成后先校验 Tauri 签名再安装。
+从 [GitHub Releases](https://github.com/TommyFang2077/dsh-easy-desktop/releases/latest) 下载对应平台的安装包；中国大陆网络可改用 [Gitea 发行版镜像](https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest)。壳会在启动时从该镜像检查自身更新，下载完成后先校验 Tauri 签名再安装。
 
 | 平台 | 产物 | 运行时要求 |
 | --- | --- | --- |
@@ -123,8 +123,8 @@ npm install -g @deepseek-ai/dsh
 - Windows：WebView2
 
 ```bash
-git clone https://github.com/TommyFang2077/dsh-desktop.git
-cd dsh-desktop
+git clone https://github.com/TommyFang2077/dsh-easy-desktop.git
+cd dsh-easy-desktop
 make vendor-native          # ModLens + 锚定预设（Tauri 打包资源）
 make run                    # 普通模式（跳过更新，便于开发）
 make dev                    # 开 WebView 检查器和调试日志
@@ -188,7 +188,7 @@ dsh-desktop/
 
 ## 反馈
 
-自用项目，会持续更新。bug、想法、打包问题都欢迎开 [issue](https://github.com/TommyFang2077/dsh-desktop/issues)。
+自用项目，会持续更新。bug、想法、打包问题都欢迎开 [issue](https://github.com/TommyFang2077/dsh-easy-desktop/issues)。
 
 ## 上游项目与许可证
 

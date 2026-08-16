@@ -25,7 +25,7 @@
     "active": true,
     "targets": ["deb", "rpm", "nsis", "msi", "app", "dmg"],
     "publisher": "TommyFang2077",
-    "homepage": "https://github.com/TommyFang2077/dsh-desktop",
+    "homepage": "https://github.com/TommyFang2077/dsh-easy-desktop",
     "copyright": "Copyright © 2026 TommyFang2077",
     "category": "DeveloperTool",
     "shortDescription": "Give DeepSeek eyes; Anchored Standard ~+8%",
