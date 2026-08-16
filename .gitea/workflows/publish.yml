@@ -1,0 +1,25 @@
+name: publish-gitea
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "GitHub release tag to publish (default: latest)"
+        required: false
+        default: latest
+
+jobs:
+  publish:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Download publish scripts
+        run: |
+          BASE=https://raw.githubusercontent.com/TommyFang2077/dsh-easy-desktop/main
+          curl -fsSL -o build-gitea-update.py "$BASE/scripts/build-gitea-update.py"
+          curl -fsSL -o publish-gitea-release.sh "$BASE/scripts/publish-gitea-release.sh"
+          curl -fsSL -o publish-gitea-actions.sh "$BASE/scripts/publish-gitea-actions.sh"
+      - name: Publish to Gitea
+        run: bash publish-gitea-actions.sh
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_BASE_URL: http://192.168.30.33:3000
+          RELEASE_TAG: ${{ github.event.inputs.tag }}

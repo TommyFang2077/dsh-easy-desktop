@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -39,6 +40,27 @@ INSTALLER_KIND = {
     "linux": "appimage",
     "windows": "nsis",
 }
+# Asset-name patterns for GitHub Release downloads (flat directory): maps a
+# fileName to its canonical (os, arch, deliverable suffix).
+FLAT_PATTERNS: list[tuple[re.Pattern, str, str, str]] = [
+    (re.compile(r"^.*_aarch64\.app\.tar\.gz\.sig$"), "darwin", "aarch64", ".app.tar.gz.sig"),
+    (re.compile(r"^.*_aarch64\.app\.tar\.gz$"), "darwin", "aarch64", ".app.tar.gz"),
+    (re.compile(r"^.*_aarch64\.dmg$"), "darwin", "aarch64", ".dmg"),
+    (re.compile(r"^.*_x64\.app\.tar\.gz\.sig$"), "darwin", "x86_64", ".app.tar.gz.sig"),
+    (re.compile(r"^.*_x64\.app\.tar\.gz$"), "darwin", "x86_64", ".app.tar.gz"),
+    (re.compile(r"^.*_x64\.dmg$"), "darwin", "x86_64", ".dmg"),
+    (re.compile(r"^.*_amd64\.deb\.sig$"), "linux", "x86_64", ".deb.sig"),
+    (re.compile(r"^.*_amd64\.deb$"), "linux", "x86_64", ".deb"),
+    (re.compile(r"^.*_amd64\.AppImage\.sig$"), "linux", "x86_64", ".AppImage.sig"),
+    (re.compile(r"^.*_amd64\.AppImage$"), "linux", "x86_64", ".AppImage"),
+    (re.compile(r"^.*?\.x86_64\.rpm\.sig$"), "linux", "x86_64", ".rpm.sig"),
+    (re.compile(r"^.*?\.x86_64\.rpm$"), "linux", "x86_64", ".rpm"),
+    (re.compile(r"^.*_x64-setup\.exe\.sig$"), "windows", "x86_64", ".exe.sig"),
+    (re.compile(r"^.*_x64-setup\.exe$"), "windows", "x86_64", ".exe"),
+    (re.compile(r"^.*_x64_en-US\.msi\.sig$"), "windows", "x86_64", ".msi.sig"),
+    (re.compile(r"^.*_x64_en-US\.msi$"), "windows", "x86_64", ".msi"),
+    (re.compile(r"^.*\.flatpak$"), "linux", "x86_64", ".flatpak"),
+]
 
 
 def artifact_target(path: Path, root: Path) -> tuple[str, str] | None:
@@ -64,6 +86,28 @@ def stage_artifacts(source: Path, output: Path, version: str) -> dict[tuple[str,
         if target is None or suffix is None:
             continue
         os_name, arch = target
+        key = (os_name, arch, suffix)
+        if key in staged:
+            raise ValueError(f"duplicate {os_name}-{arch}{suffix}: {staged[key]} and {path}")
+        destination = output / f"dsh-easy-desktop_{version}_{os_name}_{arch}{suffix}"
+        shutil.copy2(path, destination)
+        staged[key] = destination
+    return staged
+
+
+def stage_flat_artifacts(source: Path, output: Path, version: str) -> dict[tuple[str, str, str], Path]:
+    output.mkdir(parents=True, exist_ok=True)
+    staged: dict[tuple[str, str, str], Path] = {}
+    for path in sorted(source.iterdir()):
+        if not path.is_file():
+            continue
+        match = next(
+            ((pattern, os_name, arch, suffix) for pattern, os_name, arch, suffix in FLAT_PATTERNS if pattern.match(path.name)),
+            None,
+        )
+        if match is None:
+            continue
+        _, os_name, arch, suffix = match
         key = (os_name, arch, suffix)
         if key in staged:
             raise ValueError(f"duplicate {os_name}-{arch}{suffix}: {staged[key]} and {path}")
@@ -109,7 +153,8 @@ def build_manifest(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--artifacts", required=True, type=Path)
+    parser.add_argument("--artifacts", type=Path, help="matrix-layout artifact directory")
+    parser.add_argument("--flat-artifacts", type=Path, help="flat GitHub Release asset directory")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--package-base-url", required=True)
@@ -117,7 +162,12 @@ def main() -> None:
     parser.add_argument("--pub-date")
     args = parser.parse_args()
 
-    staged = stage_artifacts(args.artifacts, args.output, args.version)
+    if (args.artifacts is None) == (args.flat_artifacts is None):
+        raise SystemExit("exactly one of --artifacts or --flat-artifacts is required")
+    if args.artifacts is not None:
+        staged = stage_artifacts(args.artifacts, args.output, args.version)
+    else:
+        staged = stage_flat_artifacts(args.flat_artifacts, args.output, args.version)
     manifest = build_manifest(
         staged,
         args.version,
