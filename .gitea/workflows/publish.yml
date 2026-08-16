@@ -20,6 +20,6 @@ jobs:
       - name: Publish to Gitea
         run: bash publish-gitea-actions.sh
         env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           GITEA_BASE_URL: http://192.168.30.33:3000
           RELEASE_TAG: ${{ github.event.inputs.tag }}
