@@ -34,11 +34,17 @@ rm -rf artifacts staged
 mkdir -p artifacts
 
 curl -fsS "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG" -o /tmp/release.json
-jq -r '.assets[].browser_download_url' /tmp/release.json | while read -r url; do
+jq -r '.assets[].browser_download_url' /tmp/release.json > /tmp/asset-urls.txt
+while read -r url; do
   curl -fsSL --retry 3 --retry-delay 5 -o "artifacts/$(basename "$url")" "$url" &
-done
+done < /tmp/asset-urls.txt
 wait
-echo "downloaded $(find artifacts -type f | wc -l) assets"
+COUNT=$(find artifacts -type f | wc -l)
+echo "downloaded $COUNT assets"
+[ "$COUNT" -ge 15 ] || {
+  echo "expected at least 15 release assets, got $COUNT" >&2
+  exit 1
+}
 
 python3 build-gitea-update.py \
   --flat-artifacts artifacts \
