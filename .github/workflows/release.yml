@@ -84,7 +84,7 @@ jobs:
           - name: linux
             platform: ubuntu-22.04
             rust_targets: ""
-            args: --bundles deb,rpm
+            args: --bundles deb,rpm,appimage
           - name: windows
             platform: windows-latest
             rust_targets: ""
@@ -128,6 +128,9 @@ jobs:
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          DSH_DESKTOP_UPDATER_PUBKEY: ${{ secrets.DSH_DESKTOP_UPDATER_PUBKEY }}
         with:
           projectPath: .
           tagName: v__VERSION__
@@ -139,11 +142,31 @@ jobs:
             - Windows / macOS / deb / rpm 需要本机已安装 `dsh`（`npm i -g @deepseek-ai/dsh`），或设置 `DSH_DESKTOP_DSH_BIN`。
             - Flatpak 自带 Node.js 与 `dsh`。
             - macOS 包未公证，需在「系统设置 → 隐私与安全性」中允许打开。
+            - 中国大陆用户可从 Gitea 镜像下载安装包；壳更新使用同一镜像并在安装前校验 Tauri 签名。
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: false
-          uploadUpdaterSignatures: false
+          uploadUpdaterSignatures: true
           args: ${{ matrix.args }}
+
+      - name: Collect Gitea release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitea-${{ matrix.name }}
+          path: |
+            target/**/release/bundle/**/*.dmg
+            target/**/release/bundle/**/*.app.tar.gz
+            target/**/release/bundle/**/*.app.tar.gz.sig
+            target/**/release/bundle/**/*.deb
+            target/**/release/bundle/**/*.rpm
+            target/**/release/bundle/**/*.AppImage
+            target/**/release/bundle/**/*.AppImage.sig
+            target/**/release/bundle/**/*.exe
+            target/**/release/bundle/**/*.exe.sig
+            target/**/release/bundle/**/*.msi
+            target/**/release/bundle/**/*.msi.sig
+          if-no-files-found: error
+          retention-days: 1
 
   flatpak:
     name: Flatpak
@@ -176,3 +199,44 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Collect Gitea Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitea-flatpak
+          path: io.github.tommyfang.DshDesktop.flatpak
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-gitea:
+    name: Publish Gitea mirror
+    needs: [version, package, flatpak]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gitea-*
+          path: artifacts
+
+      - name: Normalize artifacts and build latest.json
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python3 scripts/build-gitea-update.py \
+            --artifacts artifacts \
+            --output staged \
+            --version "$VERSION" \
+            --pub-date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --package-base-url "https://git.fangsiyuan.top/api/packages/TomHanck4/generic/dsh-easy-desktop-updater"
+
+      - name: Publish Gitea release and updater feed
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_BASE_URL: https://git.fangsiyuan.top
+          GITEA_OWNER: TomHanck4
+          GITEA_REPO: dsh-easy-desktop
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: bash scripts/publish-gitea-release.sh staged

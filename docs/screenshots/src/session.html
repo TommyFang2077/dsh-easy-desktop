@@ -82,6 +82,11 @@
       .chip {
         border: 0.5px solid var(--line); border-radius: 999px; padding: 4px 10px; background: #fff;
       }
+      .send-cluster { display: flex; align-items: center; gap: 8px; }
+      .mic {
+        width: 28px; height: 28px; border-radius: 8px;
+        display: grid; place-items: center; font-size: 14px; color: var(--muted);
+      }
       .send {
         width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff;
         display: grid; place-items: center; font-size: 14px;
@@ -126,7 +131,10 @@
               <span class="chip">锚定式标准（实验）</span>
               <span class="chip">工作区</span>
             </div>
-            <div class="send">↑</div>
+            <div class="send-cluster">
+              <div class="mic" title="语音输入">🎤</div>
+              <div class="send">↑</div>
+            </div>
           </div>
         </div>
       </section>

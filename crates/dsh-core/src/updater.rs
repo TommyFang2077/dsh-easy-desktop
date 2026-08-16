@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -6,13 +7,14 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::paths::{cache_home, data_home};
-use crate::ENV_NO_UPDATE;
+use crate::{ENV_NO_UPDATE, ENV_NPM_REGISTRY};
 
 pub const DSH_PACKAGE: &str = "@deepseek-ai/dsh";
 pub const VIEW_TIMEOUT_SECONDS: u64 = 20;
 pub const INSTALL_TIMEOUT_SECONDS: u64 = 180;
 pub const BUNDLED_PREFIX: &str = "/app";
 pub const BUNDLED_DSH: &[&str] = &["/app/bin/dsh", "/app/node24/bin/dsh"];
+pub const DEFAULT_NPM_REGISTRY: &str = "https://registry.npmmirror.com";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateResult {
@@ -83,9 +85,30 @@ fn find_node_dir() -> Option<PathBuf> {
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
 }
 
+fn selected_npm_registry<'a>(
+    desktop_override: Option<&'a OsStr>,
+    npm_override: Option<&'a OsStr>,
+) -> &'a OsStr {
+    desktop_override
+        .filter(|value| !value.is_empty())
+        .or_else(|| npm_override.filter(|value| !value.is_empty()))
+        .unwrap_or_else(|| OsStr::new(DEFAULT_NPM_REGISTRY))
+}
+
+pub(crate) fn configure_npm_registry(command: &mut Command) {
+    let desktop_override = std::env::var_os(ENV_NPM_REGISTRY);
+    let npm_override =
+        std::env::var_os("npm_config_registry").or_else(|| std::env::var_os("NPM_CONFIG_REGISTRY"));
+    command.env(
+        "npm_config_registry",
+        selected_npm_registry(desktop_override.as_deref(), npm_override.as_deref()),
+    );
+}
+
 fn npm_command(npm: &Path) -> Command {
     let mut cmd = Command::new(npm);
     let cache = cache_home().join("dsh-desktop/npm");
+    configure_npm_registry(&mut cmd);
     let _ = std::fs::create_dir_all(&cache);
     cmd.env("npm_config_cache", &cache);
     cmd.env("npm_config_update_notifier", "false");
@@ -169,8 +192,12 @@ pub fn mark_update_checked() {
 }
 
 pub fn fetch_latest_version(npm: &Path) -> Option<String> {
-    let out = run_npm(npm, &["view", DSH_PACKAGE, "version"], Duration::from_secs(VIEW_TIMEOUT_SECONDS))
-        .ok()?;
+    let out = run_npm(
+        npm,
+        &["view", DSH_PACKAGE, "version"],
+        Duration::from_secs(VIEW_TIMEOUT_SECONDS),
+    )
+    .ok()?;
     if !out.status.success() {
         return None;
     }
@@ -213,12 +240,14 @@ fn env_skips_update() -> bool {
 
 pub fn update_dsh(enabled: bool) -> UpdateResult {
     if !enabled || env_skips_update() {
-        let version = read_version(&update_prefix()).or_else(|| read_version(Path::new(BUNDLED_PREFIX)));
+        let version =
+            read_version(&update_prefix()).or_else(|| read_version(Path::new(BUNDLED_PREFIX)));
         return UpdateResult::new("skipped", version, "已跳过 dsh 更新");
     }
 
     let npm = find_npm();
-    let current = read_version(&update_prefix()).or_else(|| read_version(Path::new(BUNDLED_PREFIX)));
+    let current =
+        read_version(&update_prefix()).or_else(|| read_version(Path::new(BUNDLED_PREFIX)));
     let Some(npm) = npm else {
         let extra = current
             .as_deref()
@@ -247,11 +276,7 @@ pub fn update_dsh(enabled: bool) -> UpdateResult {
     };
 
     if current.as_deref() == Some(latest.as_str()) {
-        return UpdateResult::new(
-            "current",
-            current,
-            format!("内置 dsh 已是最新（{latest}）"),
-        );
+        return UpdateResult::new("current", current, format!("内置 dsh 已是最新（{latest}）"));
     }
 
     let dest = update_prefix();
@@ -320,6 +345,32 @@ mod tests {
     #[test]
     fn read_version_missing() {
         assert_eq!(read_version(Path::new("/no/such/prefix")), None);
+    }
+    #[test]
+    fn npm_commands_default_to_mainland_reachable_registry() {
+        assert_eq!(
+            selected_npm_registry(None, None),
+            OsStr::new(DEFAULT_NPM_REGISTRY)
+        );
+    }
+
+    #[test]
+    fn desktop_registry_override_wins() {
+        assert_eq!(
+            selected_npm_registry(
+                Some(OsStr::new("https://registry.example.cn")),
+                Some(OsStr::new("https://registry.npmjs.org")),
+            ),
+            OsStr::new("https://registry.example.cn")
+        );
+    }
+
+    #[test]
+    fn npm_registry_override_is_preserved() {
+        assert_eq!(
+            selected_npm_registry(None, Some(OsStr::new("https://packages.example.com/npm")),),
+            OsStr::new("https://packages.example.com/npm")
+        );
     }
 
     #[test]

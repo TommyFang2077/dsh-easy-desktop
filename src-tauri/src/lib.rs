@@ -1,6 +1,9 @@
+mod shell_updater;
+
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -38,7 +41,9 @@ pub struct Args {
 impl Args {
     pub fn parse() -> Self {
         let mut args = Args {
-            dsh: std::env::var(dsh_core::ENV_BIN_OVERRIDE).ok().filter(|s| !s.is_empty()),
+            dsh: std::env::var(dsh_core::ENV_BIN_OVERRIDE)
+                .ok()
+                .filter(|s| !s.is_empty()),
             cwd: std::env::var(dsh_core::ENV_CWD_OVERRIDE)
                 .ok()
                 .filter(|s| !s.is_empty())
@@ -91,6 +96,7 @@ struct AppState {
     paths: BundledPaths,
     process: Mutex<Option<Arc<DshProcess>>>,
     url: Mutex<Option<String>>,
+    initial_boot_started: AtomicBool,
 }
 
 impl AppState {
@@ -122,6 +128,41 @@ struct ReadyPayload {
 #[tauri::command]
 fn restart(app: AppHandle) {
     thread::spawn(move || boot(app));
+}
+fn start_initial_boot(app: AppHandle) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    if state.initial_boot_started.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    thread::spawn(move || boot(app));
+}
+
+#[tauri::command]
+async fn check_shell_update(app: AppHandle) -> Option<shell_updater::UpdateInfo> {
+    match shell_updater::check(&app).await {
+        Ok(Some(update)) => Some(update),
+        Ok(None) => {
+            start_initial_boot(app);
+            None
+        }
+        Err(error) => {
+            log::warn!("shell update check failed: {error}");
+            start_initial_boot(app);
+            None
+        }
+    }
+}
+
+#[tauri::command]
+async fn install_shell_update(app: AppHandle) -> Result<(), String> {
+    shell_updater::install(&app).await
+}
+
+#[tauri::command]
+fn skip_shell_update(app: AppHandle) {
+    start_initial_boot(app);
 }
 
 #[tauri::command]
@@ -204,9 +245,18 @@ fn read_cli_image() -> Option<ClipboardFile> {
         ("wl-paste", &["--type", "image/png"]),
         ("wl-paste", &["--type", "image/jpeg"]),
         ("wl-paste", &["--type", "image/webp"]),
-        ("xclip", &["-selection", "clipboard", "-t", "image/png", "-o"]),
-        ("xclip", &["-selection", "clipboard", "-t", "image/jpeg", "-o"]),
-        ("xclip", &["-selection", "clipboard", "-t", "image/webp", "-o"]),
+        (
+            "xclip",
+            &["-selection", "clipboard", "-t", "image/png", "-o"],
+        ),
+        (
+            "xclip",
+            &["-selection", "clipboard", "-t", "image/jpeg", "-o"],
+        ),
+        (
+            "xclip",
+            &["-selection", "clipboard", "-t", "image/webp", "-o"],
+        ),
     ];
     for (bin, args) in ATTEMPTS {
         let output = match Command::new(bin).args(*args).output() {
@@ -223,6 +273,33 @@ fn read_cli_image() -> Option<ClipboardFile> {
         }
     }
     None
+}
+
+fn enable_microphone(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = window.with_webview(|platform| {
+            use gtk::glib::{object::ObjectExt, StaticType};
+            use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt};
+            let webview = platform.inner();
+            if let Some(settings) = webview.settings() {
+                settings.set_enable_media_stream(true);
+                settings.set_enable_mediasource(true);
+            }
+            webview.connect_permission_request(|_, request| {
+                if request
+                    .type_()
+                    .is_a(webkit2gtk::UserMediaPermissionRequest::static_type())
+                {
+                    request.allow();
+                    true
+                } else {
+                    false
+                }
+            });
+        });
+    }
+    let _ = window;
 }
 
 fn is_internal(url: &Url) -> bool {
@@ -359,17 +436,21 @@ fn boot(app: AppHandle) {
 
 pub fn run() {
     let args = Args::parse();
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(if args.verbose {
-        "debug"
-    } else {
-        "info"
-    }))
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or(if args.verbose { "debug" } else { "info" }),
+    )
     .init();
 
     let mut paths = BundledPaths::discover();
     let dev = args.dev;
+    let updater = match shell_updater::public_key() {
+        Some(public_key) => tauri_plugin_updater::Builder::new().pubkey(public_key),
+        None => tauri_plugin_updater::Builder::new(),
+    }
+    .build();
 
     tauri::Builder::default()
+        .plugin(updater)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -386,23 +467,25 @@ pub fn run() {
                 paths,
                 process: Mutex::new(None),
                 url: Mutex::new(None),
+                initial_boot_started: AtomicBool::new(false),
             });
 
-            let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title(APP_NAME)
-                .inner_size(1320.0, 860.0)
-                .min_inner_size(800.0, 560.0)
-                .decorations(false)
-                .resizable(true)
-                .initialization_script(INJECT)
-                .on_navigation(|url| {
-                    if is_internal(&url) {
-                        true
-                    } else {
-                        let _ = open::that(url.as_str());
-                        false
-                    }
-                });
+            let mut builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title(APP_NAME)
+                    .inner_size(1320.0, 860.0)
+                    .min_inner_size(800.0, 560.0)
+                    .decorations(false)
+                    .resizable(true)
+                    .initialization_script(INJECT)
+                    .on_navigation(|url| {
+                        if is_internal(&url) {
+                            true
+                        } else {
+                            let _ = open::that(url.as_str());
+                            false
+                        }
+                    });
 
             if let Some(icon) = app.default_window_icon().cloned() {
                 builder = builder.icon(icon)?;
@@ -416,16 +499,18 @@ pub fn run() {
             if dev {
                 window.open_devtools();
             }
+            enable_microphone(&window);
 
-            let app_handle = app.handle().clone();
             let _ = window;
-            thread::spawn(move || boot(app_handle));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             restart,
             open_in_browser,
-            read_clipboard_images
+            read_clipboard_images,
+            check_shell_update,
+            install_shell_update,
+            skip_shell_update,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

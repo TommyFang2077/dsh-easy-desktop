@@ -10,7 +10,7 @@ use regex::Regex;
 use thiserror::Error;
 
 use crate::paths::{home_dir, is_flatpak};
-use crate::updater::update_dsh_bin;
+use crate::updater::{configure_npm_registry, update_dsh_bin};
 use crate::{ENV_BIN_OVERRIDE, ENV_CWD_OVERRIDE};
 
 pub const DSH_DEFAULT_HOST: &str = "127.0.0.1";
@@ -117,8 +117,8 @@ impl DshLauncher {
             }
         }
         if let Some(cli) = &self.dsh_bin_override {
-            let parts = shlex::split(cli)
-                .ok_or_else(|| DshNotFound::new("dsh 命令不是合法的命令"))?;
+            let parts =
+                shlex::split(cli).ok_or_else(|| DshNotFound::new("dsh 命令不是合法的命令"))?;
             candidates.push(parts);
         }
 
@@ -197,6 +197,7 @@ impl DshLauncher {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .stdin(Stdio::null());
+        configure_npm_registry(&mut cmd);
         #[cfg(unix)]
         {
             use std::os::unix::process::CommandExt;
@@ -208,9 +209,9 @@ impl DshLauncher {
             const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
             cmd.creation_flags(CREATE_NEW_PROCESS_GROUP);
         }
-        let mut child = cmd.spawn().map_err(|exc| {
-            DshNotFound::new(format!("无法启动 dsh web: {exc}"))
-        })?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|exc| DshNotFound::new(format!("无法启动 dsh web: {exc}")))?;
         let stdout = child.stdout.take();
         Ok(DshProcess::new(child, stdout, self.in_flatpak))
     }

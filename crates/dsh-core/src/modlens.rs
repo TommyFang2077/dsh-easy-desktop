@@ -8,7 +8,13 @@ use crate::paths::{copy_tree, dsh_home, replace_symlink, BundledPaths};
 
 pub const PACKAGE: &str = "@liustack/modlens";
 pub const VISION_PACKAGE: &str = "dsh-desktop-vision";
+pub const VOICE_PACKAGE: &str = "dsh-desktop-voice";
+pub const MARKET_PACKAGE: &str = "dshmarket";
 pub const MODLENS_VERSION: &str = "3.16.6";
+const VISION_PLUGIN_VERSION: &str = "0.1.4";
+const VOICE_PLUGIN_VERSION: &str = "0.4.0";
+const MARKET_PLUGIN_VERSION: &str = "1.9.0";
+const MANAGED_BUNDLES_DIR: &str = ".dsh-desktop/bundles";
 pub const HIDE_PLAIN_TWINS_JS: &str = include_str!("../../../ui/inject/hide-twins.js");
 
 pub const MANAGED_OVERLAY: &str = "\
@@ -48,18 +54,55 @@ pub fn read_modlens_version(prefix: &Path) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+fn bundle_should_replace(installed: Option<&str>, bundled: &str) -> bool {
+    let Some(installed) = installed else {
+        return true;
+    };
+    if installed == bundled {
+        return false;
+    }
+    match (
+        semver::Version::parse(installed),
+        semver::Version::parse(bundled),
+    ) {
+        (Ok(installed), Ok(bundled)) => installed < bundled,
+        _ => true,
+    }
+}
+
+fn bundled_plugin(paths: &BundledPaths, dirs: &[&str]) -> Option<PathBuf> {
+    dirs.iter().find_map(|rel| {
+        paths
+            .find_dir(rel, "package.json")
+            .filter(|p| p.join("client.js").is_file() && p.join("index.js").is_file())
+    })
+}
+
 pub fn bundled_vision_plugin(paths: &BundledPaths) -> Option<PathBuf> {
-    paths
-        .find_dir("vision", "package.json")
-        .or_else(|| paths.find_dir("dsh-desktop-vision", "package.json"))
-        .or_else(|| paths.find_dir("plugins/dsh-desktop-vision", "package.json"))
-        .filter(|p| p.join("client.js").is_file())
+    bundled_plugin(
+        paths,
+        &["vision", "dsh-desktop-vision", "plugins/dsh-desktop-vision"],
+    )
+}
+
+fn bundled_voice_plugin(paths: &BundledPaths) -> Option<PathBuf> {
+    bundled_plugin(
+        paths,
+        &["voice", "dsh-desktop-voice", "plugins/dsh-desktop-voice"],
+    )
 }
 
 pub fn bundled_modlens_prefix(paths: &BundledPaths) -> Option<PathBuf> {
     paths
         .find_dir("modlens", "node_modules/@liustack/modlens")
         .or_else(|| paths.find_dir("vendor/modlens", "node_modules/@liustack/modlens"))
+}
+
+pub fn bundled_market_prefix(paths: &BundledPaths) -> Option<PathBuf> {
+    paths
+        .find_dir("market", "node_modules/dshmarket/package.json")
+        .or_else(|| paths.find_dir("dshmarket", "node_modules/dshmarket/package.json"))
+        .or_else(|| paths.find_dir("vendor/dshmarket", "node_modules/dshmarket/package.json"))
 }
 
 fn install_into_profile(src_prefix: &Path, profile: &Path) -> std::io::Result<()> {
@@ -86,22 +129,92 @@ fn read_pkg_version(dir: &Path) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn install_vision_plugin(paths: &BundledPaths, profile: &Path) -> bool {
-    let Some(src) = bundled_vision_plugin(paths) else {
+fn local_plugin_spec(pkg: &str) -> String {
+    format!("file:{MANAGED_BUNDLES_DIR}/{pkg}")
+}
+
+fn install_profile_plugin(
+    profile: &Path,
+    pkg: &str,
+    expected_version: &str,
+    src: Option<PathBuf>,
+) -> bool {
+    let Some(src) = src else {
         return false;
     };
-    let dest = profile.join("node_modules").join(VISION_PACKAGE);
-    let up_to_date = dest.join("client.js").is_file()
-        && dest.join("index.js").is_file()
-        && read_pkg_version(&dest) == read_pkg_version(&src);
-    if !up_to_date && copy_tree(&src, &dest, true).is_err() {
+    if read_pkg_version(&src).as_deref() != Some(expected_version) {
         return false;
+    }
+    let managed = profile.join(MANAGED_BUNDLES_DIR).join(pkg);
+    let managed_current = managed.join("client.js").is_file()
+        && managed.join("index.js").is_file()
+        && read_pkg_version(&managed) == read_pkg_version(&src);
+    if !managed_current && copy_tree(&src, &managed, true).is_err() {
+        return false;
+    }
+    let dest = profile.join("node_modules").join(pkg);
+    let installed_current = dest.join("client.js").is_file()
+        && dest.join("index.js").is_file()
+        && read_pkg_version(&dest) == read_pkg_version(&managed);
+    if !installed_current && copy_tree(&managed, &dest, true).is_err() {
+        return false;
+    }
+    let fallback = dsh_home().join("profiles/node_modules").join(pkg);
+    let _ = replace_symlink(&fallback, &dest);
+    true
+}
+
+fn install_vision_plugin(paths: &BundledPaths, profile: &Path) -> bool {
+    install_profile_plugin(
+        profile,
+        VISION_PACKAGE,
+        VISION_PLUGIN_VERSION,
+        bundled_vision_plugin(paths),
+    )
+}
+
+fn install_voice_plugin(paths: &BundledPaths, profile: &Path) -> bool {
+    install_profile_plugin(
+        profile,
+        VOICE_PACKAGE,
+        VOICE_PLUGIN_VERSION,
+        bundled_voice_plugin(paths),
+    )
+}
+
+fn install_market_plugin(paths: &BundledPaths, profile: &Path) -> std::io::Result<Option<String>> {
+    let Some(prefix) = bundled_market_prefix(paths) else {
+        return Ok(None);
+    };
+    let src = prefix.join("node_modules").join(MARKET_PACKAGE);
+    let Some(version) = read_pkg_version(&src) else {
+        return Ok(None);
+    };
+    if version != MARKET_PLUGIN_VERSION {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("bundled dshmarket version {version} does not match {MARKET_PLUGIN_VERSION}"),
+        ));
+    }
+    let dest = profile.join("node_modules").join(MARKET_PACKAGE);
+    if read_pkg_version(&dest).as_deref() != Some(version.as_str()) {
+        copy_tree(&src, &dest, true)?;
+    }
+    for dep in [
+        "@deepseek-ai/cordis",
+        "@deepseek-ai/cosmokit",
+        "@standard-schema/spec",
+    ] {
+        let src_dep = prefix.join("node_modules").join(dep);
+        if src_dep.is_dir() {
+            copy_tree(&src_dep, &profile.join("node_modules").join(dep), true)?;
+        }
     }
     let fallback = dsh_home()
         .join("profiles/node_modules")
-        .join(VISION_PACKAGE);
+        .join(MARKET_PACKAGE);
     let _ = replace_symlink(&fallback, &dest);
-    true
+    Ok(Some(version))
 }
 
 fn ensure_manifest(profile: &Path, packages: &BTreeMap<String, String>) -> std::io::Result<()> {
@@ -323,9 +436,19 @@ fn ensure_modlens_inner(
 ) -> std::io::Result<ModlensEnsureResult> {
     std::fs::create_dir_all(profile)?;
     let vision_ok = install_vision_plugin(paths, profile);
+    let voice_ok = install_voice_plugin(paths, profile);
     let mut packages = BTreeMap::new();
     if vision_ok {
-        packages.insert(VISION_PACKAGE.to_string(), "0.1.0".into());
+        packages.insert(
+            VISION_PACKAGE.to_string(),
+            local_plugin_spec(VISION_PACKAGE),
+        );
+    }
+    if voice_ok {
+        packages.insert(VOICE_PACKAGE.to_string(), local_plugin_spec(VOICE_PACKAGE));
+    }
+    if let Some(version) = install_market_plugin(paths, profile)? {
+        packages.insert(MARKET_PACKAGE.to_string(), version);
     }
     if src.is_none() && installed.is_none() {
         if !packages.is_empty() {
@@ -337,8 +460,9 @@ fn ensure_modlens_inner(
             message: "未找到内置 ModLens，跳过插件安装".into(),
         });
     }
+    let replace_bundle = src.is_some() && bundle_should_replace(installed.as_deref(), version);
     let installed_after = if let Some(src) = src {
-        if installed.as_deref() != Some(version) {
+        if replace_bundle {
             install_into_profile(src, profile)?;
             read_modlens_version(profile).unwrap_or_else(|| version.to_string())
         } else {
@@ -374,11 +498,18 @@ fn ensure_modlens_inner(
             message: format!("已配置已安装的 ModLens {installed_after}（纯文本自动套视觉桥）"),
         });
     }
-    if installed.as_deref() == Some(version) {
+    if !replace_bundle {
+        if installed.as_deref() == Some(version) {
+            return Ok(ModlensEnsureResult {
+                status: "current",
+                version: Some(version.to_string()),
+                message: format!("内置 ModLens {version} 已就绪"),
+            });
+        }
         return Ok(ModlensEnsureResult {
             status: "current",
-            version: Some(version.to_string()),
-            message: format!("内置 ModLens {version} 已就绪"),
+            version: Some(installed_after.clone()),
+            message: format!("已保留用户更新的 ModLens {installed_after}（内置版本 {version}）"),
         });
     }
     if installed.is_some() {
@@ -473,5 +604,81 @@ ui-theme:
     fn hide_twins_script_targets_suffix() {
         assert!(HIDE_PLAIN_TWINS_JS.contains("(modlens vision)"));
         assert!(HIDE_PLAIN_TWINS_JS.contains("MutationObserver"));
+    }
+
+    #[test]
+    fn bundled_market_is_added_to_profile() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let market = tmp.path().join("market/node_modules/dshmarket");
+        std::fs::create_dir_all(&market).unwrap();
+        std::fs::write(
+            market.join("package.json"),
+            r#"{"name":"dshmarket","version":"1.9.0"}"#,
+        )
+        .unwrap();
+        std::fs::write(market.join("index.js"), "export {}\n").unwrap();
+        let paths = BundledPaths::default().with_resource_dir(tmp.path().to_path_buf());
+        let profile = tmp.path().join("profile");
+
+        ensure_modlens_inner(&paths, None, &profile, None, MODLENS_VERSION).unwrap();
+
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
+                .unwrap();
+        assert_eq!(manifest["dependencies"]["dshmarket"], "1.9.0");
+        assert!(manifest["dsh"]["profile"]["bundles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item == "dshmarket"));
+        assert!(profile
+            .join("node_modules/dshmarket/package.json")
+            .is_file());
+    }
+
+    #[test]
+    fn bundled_local_plugins_use_file_dependencies() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        for (dir, name, version) in [
+            ("vision", VISION_PACKAGE, VISION_PLUGIN_VERSION),
+            ("voice", VOICE_PACKAGE, VOICE_PLUGIN_VERSION),
+        ] {
+            let plugin = tmp.path().join(dir);
+            std::fs::create_dir_all(&plugin).unwrap();
+            std::fs::write(
+                plugin.join("package.json"),
+                format!(r#"{{"name":"{name}","version":"{version}"}}"#),
+            )
+            .unwrap();
+            std::fs::write(plugin.join("client.js"), "export {}\n").unwrap();
+            std::fs::write(plugin.join("index.js"), "export {}\n").unwrap();
+        }
+        let paths = BundledPaths::default().with_resource_dir(tmp.path().to_path_buf());
+        let profile = tmp.path().join("profile");
+
+        ensure_modlens_inner(&paths, None, &profile, None, MODLENS_VERSION).unwrap();
+
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
+                .unwrap();
+        for name in [VISION_PACKAGE, VOICE_PACKAGE] {
+            assert_eq!(
+                manifest["dependencies"][name],
+                format!("file:.dsh-desktop/bundles/{name}")
+            );
+            assert!(profile
+                .join(".dsh-desktop/bundles")
+                .join(name)
+                .join("package.json")
+                .is_file());
+        }
+    }
+
+    #[test]
+    fn newer_marketplace_modlens_is_not_replaced_by_bundle() {
+        assert!(!bundle_should_replace(Some("3.17.3"), "3.16.6"));
+        assert!(!bundle_should_replace(Some("3.16.6"), "3.16.6"));
+        assert!(bundle_should_replace(Some("3.16.5"), "3.16.6"));
+        assert!(bundle_should_replace(None, "3.16.6"));
     }
 }

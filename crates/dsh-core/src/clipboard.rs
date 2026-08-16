@@ -24,7 +24,12 @@ pub struct ClipboardFile {
 }
 
 pub fn is_image_mime(mime: &str) -> bool {
-    let mime = mime.split(';').next().unwrap_or(mime).trim().to_ascii_lowercase();
+    let mime = mime
+        .split(';')
+        .next()
+        .unwrap_or(mime)
+        .trim()
+        .to_ascii_lowercase();
     let mime = if mime == "image/jpg" {
         "image/jpeg"
     } else {
@@ -34,7 +39,12 @@ pub fn is_image_mime(mime: &str) -> bool {
 }
 
 pub fn filename_for_mime(mime: &str, index: usize) -> String {
-    let mime = mime.split(';').next().unwrap_or(mime).trim().to_ascii_lowercase();
+    let mime = mime
+        .split(';')
+        .next()
+        .unwrap_or(mime)
+        .trim()
+        .to_ascii_lowercase();
     let ext = match mime.as_str() {
         "image/png" => "png",
         "image/jpeg" | "image/jpg" => "jpg",
@@ -84,9 +94,7 @@ fn url_parse_file(rest: &str) -> Result<String, ()> {
     let decoded = percent_decode(&uri);
     if let Some(idx) = decoded.find("://") {
         let after = &decoded[idx + 3..];
-        let path = after
-            .strip_prefix("localhost")
-            .unwrap_or(after);
+        let path = after.strip_prefix("localhost").unwrap_or(after);
         return Ok(path.to_string());
     }
     if let Some(path) = decoded.strip_prefix("file:") {
@@ -101,7 +109,8 @@ fn percent_decode(input: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(v) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            if let Ok(v) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
             {
                 out.push(v);
                 i += 3;
@@ -220,7 +229,10 @@ mod tests {
             detect_image_mime(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 1]),
             Some("image/png")
         );
-        assert_eq!(detect_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("image/jpeg"));
+        assert_eq!(
+            detect_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0]),
+            Some("image/jpeg")
+        );
         assert_eq!(detect_image_mime(b"not-an-image"), None);
     }
 

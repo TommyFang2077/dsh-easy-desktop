@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fetch ModLens + Anchored Standard into vendor/ for Tauri resource bundling.
+# Fetch ModLens, dshmarket, and Anchored Standard into vendor/ for Tauri resources.
 # Does not vendor @deepseek-ai/dsh (that is Flatpak-only; see `make vendor`).
 set -euo pipefail
 
@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 MODLENS_VERSION="${MODLENS_VERSION:-3.16.6}"
+MARKET_VERSION="${MARKET_VERSION:-1.9.0}"
 ANCHORED_COMMIT="${ANCHORED_COMMIT:-ffb845c5480adc953392a6db6f8a98ede621174b}"
 ANCHORED_REPO="${ANCHORED_REPO:-https://github.com/xiaobright/dsh-anchored-standard.git}"
 if [ -z "${PYTHON:-}" ]; then
@@ -20,6 +21,7 @@ fi
 ANCHORED_DIR="vendor/anchored-standard"
 ZERO_DIR="vendor/zero-anchored-standard"
 MODLENS_DIR="vendor/modlens"
+MARKET_DIR="vendor/dshmarket"
 
 rm -rf vendor/.anchored-src "$ANCHORED_DIR" "$ZERO_DIR"
 mkdir -p vendor/.anchored-src
@@ -42,7 +44,13 @@ rm -rf "$MODLENS_DIR"
 mkdir -p "$MODLENS_DIR"
 npm install --prefix "$MODLENS_DIR" --prefer-offline --no-audit --no-fund "@liustack/modlens@${MODLENS_VERSION}"
 
+rm -rf "$MARKET_DIR"
+mkdir -p "$MARKET_DIR"
+npm install --prefix "$MARKET_DIR" --prefer-offline --no-audit --no-fund "dshmarket@${MARKET_VERSION}"
+"$PYTHON" scripts/patch-dshmarket-mainland.py
+
 test -f "$ANCHORED_DIR/preset.yml"
 test -f "$ZERO_DIR/preset.yml"
 test -d "$MODLENS_DIR/node_modules/@liustack/modlens"
-echo "vendored ModLens ${MODLENS_VERSION} and Anchored Standard ${ANCHORED_COMMIT}"
+test -d "$MARKET_DIR/node_modules/dshmarket"
+echo "vendored ModLens ${MODLENS_VERSION}, dshmarket ${MARKET_VERSION}, and Anchored Standard ${ANCHORED_COMMIT}"

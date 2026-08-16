@@ -98,6 +98,40 @@ h1 {
 
 .pill[hidden] { display: none; }
 
+.pill.secondary {
+  background: var(--card);
+  color: var(--text);
+}
+
+.pill:disabled { opacity: 0.55; }
+
+.update-panel {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.update-panel[hidden] { display: none; }
+
+#update-notes {
+  max-height: 120px;
+  margin: 0;
+  overflow: auto;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.update-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.update-actions .pill { margin-top: 16px; }
+
 #detail {
   margin: 22px 0 0;
   text-align: left;

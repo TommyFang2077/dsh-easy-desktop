@@ -13,6 +13,13 @@
         <h1>DeepSeek Harness</h1>
         <p id="status">正在启动…</p>
         <div class="ring" id="spinner" aria-hidden="true"></div>
+        <section id="update-panel" class="update-panel" hidden>
+          <p id="update-notes"></p>
+          <div class="update-actions">
+            <button type="button" class="pill" id="install-update">下载并安装</button>
+            <button type="button" class="pill secondary" id="skip-update">稍后</button>
+          </div>
+        </section>
         <button type="button" class="pill" id="retry" hidden>重试</button>
         <pre id="detail" hidden></pre>
       </section>

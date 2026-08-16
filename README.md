@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/banner.png" alt="DeepSeek Harness Desktop：官方 dsh 原生壳，给 DeepSeek 带上眼睛" />
+  <img src="docs/screenshots/banner.png" alt="DeepSeek Harness Desktop：内置离线语音、插件市场与视觉模型配置" />
 </p>
 
 <h1 align="center">DeepSeek Harness Desktop</h1>
@@ -9,13 +9,14 @@
 </p>
 
 <p align="center">
-  👁️ 给 DeepSeek <strong>带上眼睛</strong> —— 粘贴图片直接识别&nbsp;&nbsp;·&nbsp;&nbsp;⚓ 锚定模式实测比官方 Standard <strong>约 +8%</strong>
+  <strong>离线语音输入</strong>&nbsp;&nbsp;·&nbsp;&nbsp;<strong>内置插件市场</strong>&nbsp;&nbsp;·&nbsp;&nbsp;<strong>可视化配置视觉模型</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/TommyFang2077/dsh-desktop/releases/latest"><b>⬇ 下载</b></a> ·
+  <a href="https://github.com/TommyFang2077/dsh-desktop/releases/latest"><b>下载</b></a> ·
+  <a href="https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest"><b>大陆镜像</b></a> ·
+  <a href="#核心体验">核心体验</a> ·
   <a href="#三十秒上手">三十秒上手</a> ·
-  <a href="#内置插件与预设">内置插件</a> ·
   <a href="#从源码运行">从源码运行</a>
 </p>
 
@@ -27,140 +28,91 @@
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-1f6feb" alt="dsh-plugin" /></a>
 </p>
 
-dsh 只能开在浏览器标签页里？这个仓库把它变成一个真正的桌面应用：Tauri 2 原生窗口 + 系统 WebView，Linux / Windows / macOS 通用。打开就是官方 WebUI——会话、工作区、插件、技能一个不少，`dsh` 升级后界面跟着升级，永远不用重打包前端。
+dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebView 把官方 WebUI 变成原生桌面窗口。会话、工作区、插件和技能全部保留，`dsh` 更新后界面也会随之更新，不需要重新打包前端。
 
-这是作者自用的第三方壳，**不包含** DeepSeek Harness 源码，会持续跟着 dsh 和内置组件更新；踩到坑欢迎 [提 issue](https://github.com/TommyFang2077/dsh-desktop/issues)。仓库按官方 [贡献指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/CONTRIBUTING.md) 挂了 [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic。
+这是作者维护的第三方壳，**不包含** DeepSeek Harness 源码。重点补齐官方 WebUI 在桌面端缺少的输入和扩展体验：直接说话、直接安装插件、直接配置视觉模型。
 
-## 为什么值得一试
+## 核心体验
 
-### 👁️ 给 DeepSeek 带上眼睛
+### 内置语音：SenseVoice 本机离线听写
 
-DeepSeek 主力对话模型是纯文本的——你贴一张截图，它两眼一抹黑。本应用内置 [ModLens](https://github.com/liustack/modlens)（全网第一个 dsh 视觉插件）：外挂视觉引擎后，**图片直接粘贴进对话框就能识别**，不用先存盘再填路径。配套的 **设置 → 视觉模型** 页面把 OpenAI / Gemini / Anthropic / 本机 CLI 引擎全配齐，免费的 Gemini key 就能跑。
+对话框旁直接提供麦克风按钮；按 `Ctrl+E`（macOS 为 `⌘E`）即可开始或结束听写，也可切换为按住说话。默认引擎是本机离线 **SenseVoiceSmall**，支持中文、粤语、英语、日语和韩语，识别结果直接写入当前输入框。
 
-![设置 → 视觉模型](docs/screenshots/vision.png)
+模型和 sherpa-onnx WASM 运行时**不塞进安装包**。首次点击麦克风时会明确提示下载约 245 MB，底部状态条持续显示下载与校验进度；安装完成后保存在系统缓存目录，录音不离开本机。需要云端识别时，也可切换到 OpenAI 兼容的 `/v1/audio/transcriptions` 接口。
 
-### ⚓ 锚定模式：比官方 Standard 约 +8%
+![设置 → 语音输入：SenseVoice 本机离线听写](docs/screenshots/voice.webp)
 
-DeepSeek V4 Pro 会按「第一眼看到的工具表」选执行轨迹：Project2 评测里官方 Minimal 拿 **99**，Standard 只有 **91**——但常驻 Minimal 又缺工具。内置的 [锚定式标准](https://github.com/xiaobright/dsh-anchored-standard) 两头都要：**首轮用 Minimal 真工具对钉住高分轨迹，从第二轮起解锁完整 Standard 工具目录**，同配置实测 Ability **98 / 99**，相对 Standard 的 91 约 **+8% / +9%**。另附零工具锚定变体。新会话默认就是它，开箱即用。
+### 内置插件市场：发现、安装和更新社区插件
 
-![模式菜单：锚定式标准（实验）已选中](docs/screenshots/anchored.png)
+无需记包名或离开应用。在 **设置 → Plugin Market** 中可以浏览目录、搜索分类、查看已安装插件，并直接安装、更新、备份或恢复社区插件。ModLens 等默认组件也能从这里正常更新；桌面启动不会再把用户更新的版本降回内置基线。
 
-*百分比按预设作者在 Project2 / DeepSeek V4 Pro 上的 Ability 计算：`(98−91)/91 ≈ 8%`。同配置可复现；社区实验预设，不是官方出品，不代表所有任务都涨。*
+![设置 → Plugin Market：浏览并安装社区插件](docs/screenshots/market.webp)
 
-### 🪟 像个真正的 Mac / Linux / Windows 应用
+### 视觉模型配置：给 DeepSeek 带上眼睛
 
-36px 苹果风薄标题栏，不占一排后退/前进/刷新；左侧 `•••` 菜单可重启 dsh 或跳回浏览器。关窗口自动停掉 `dsh web`，崩溃一键拉起。凭据、权限、会话全部还在 `~/.dsh`，卸载壳不丢任何东西。
+纯文本 DeepSeek 配合视觉桥后，可以直接粘贴截图识别内容。内置的 **设置 → 视觉模型** 页面集中配置 OpenAI 兼容接口、Gemini API、Anthropic API、Antigravity CLI 和 Claude Code 登录；只展示当前引擎需要的字段，密钥保存在本机配置中，相关外链由系统浏览器打开。
 
-![主窗口：官方 WebUI 嵌在原生壳里](docs/screenshots/session.png)
+![设置 → 视觉模型：配置 OpenAI 兼容视觉引擎](docs/screenshots/vision.webp)
 
-![标题栏菜单：重新启动 / 在浏览器中打开](docs/screenshots/menu.png)
+### 锚定模式与原生窗口
+
+内置的锚定式标准预设首轮使用 Minimal 工具表固定执行轨迹，从第二轮起恢复完整 Standard 工具目录。Project2 / DeepSeek V4 Pro 同配置 Ability 为 **98 / 99**，相对官方 Standard 的 91 约 **+8% / +9%**。这是社区实验预设，不代表所有任务都会提升。
+
+36px 薄标题栏保留更多对话空间；左侧 `•••` 菜单可重新启动 dsh 或在浏览器中打开。关闭窗口会停止对应的 `dsh web` 进程，凭据、权限和会话仍保存在 `~/.dsh`。
+
+![主窗口：官方 WebUI 嵌在原生壳中](docs/screenshots/session.png)
 
 ## 三十秒上手
 
-去 [GitHub Releases](https://github.com/TommyFang2077/dsh-desktop/releases/latest) 下载对应平台的安装包：
+从 [GitHub Releases](https://github.com/TommyFang2077/dsh-desktop/releases/latest) 下载对应平台的安装包；中国大陆网络可改用 [Gitea 发行版镜像](https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest)。壳会在启动时从该镜像检查自身更新，下载完成后先校验 Tauri 签名再安装。
 
 | 平台 | 产物 | 运行时要求 |
 | --- | --- | --- |
-| 🪟 Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ 本机 `dsh` |
-| 🍎 macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + 本机 `dsh` |
-| 🐧 Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + 本机 `dsh` |
-| 📦 Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与 `@deepseek-ai/dsh` |
+| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ 本机 `dsh` |
+| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + 本机 `dsh` |
+| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + 本机 `dsh` |
+| Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与 `@deepseek-ai/dsh` |
 
-除 Flatpak 外需要本机有 `dsh`：
+除 Flatpak 外，需要先安装 `dsh`：
 
 ```bash
 npm install -g @deepseek-ai/dsh
 ```
 
-装好后启动，等启动页转完就是官方 WebUI。
-
-![启动页：正在启动官方 WebUI](docs/screenshots/splash.png)
+安装后直接启动，等待启动页完成即可进入官方 WebUI。
 
 ## 功能一览
 
 | 能力 | 说明 |
 | --- | --- |
-| 原生窗口 | 启动 `dsh web --host 127.0.0.1 --port 0`，解析随机端口后用系统 WebView 加载 |
-| 零重写 | 官方会话、工作区、插件、技能全部保留；dsh 升级即界面升级 |
-| 内置视图 | 👁️ 纯文本 DeepSeek 也能粘贴识图（ModLens + 设置页） |
-| 内置锚定 | ⚓ 相对官方 Standard 约 +8%（Project2 Ability 91 → 98/99） |
-| 薄标题栏 | `•••` 菜单（重新启动 / 在浏览器中打开）+ 右侧最小化 · 缩放 · 关闭 |
-| 生命周期 | 关窗口停掉 `dsh web`；崩溃可从标题栏一键重启 |
+| 离线语音 | 对话框麦克风、`Ctrl+E` / `⌘E` 快捷键、SenseVoice 模型按需下载、本机识别 |
+| 插件市场 | 在设置内浏览、搜索、安装、更新、备份和恢复社区插件 |
+| 视觉模型 | 粘贴图片直接识别；用表单配置五类视觉引擎，不必手改 JSON |
+| 官方 WebUI | 会话、工作区、插件和技能原样保留；dsh 更新后界面同步更新 |
+| 锚定预设 | Project2 / DeepSeek V4 Pro 相对官方 Standard 约 +8% |
+| 原生生命周期 | 随机本地端口启动 `dsh web`；关闭窗口停止服务；崩溃可一键重启 |
 
-## 内置插件与预设
+## 内置能力与数据位置
 
-应用启动时把下面这些同步到用户目录。版本钉死在 [Makefile](Makefile)；第三方原文许可证见 [docs/licenses/](docs/licenses/) 与 [THIRD_PARTY.md](THIRD_PARTY.md)。
+| 组件 | 当前基线 | 用途 | 本地位置 |
+| --- | --- | --- | --- |
+| DeepSeek Harness | `0.1.0-rc.6` | 官方 WebUI；Flatpak 内置，其他安装包调用本机 `dsh` | `~/.dsh` |
+| 离线语音 | `dsh-desktop-voice 0.4.0` | 麦克风、快捷键、SenseVoice / OpenAI 兼容听写 | 配置 `~/.config/dsh-desktop/voice.json`；模型在系统缓存目录 |
+| 插件市场 | `dshmarket 1.9.0` | 社区插件的发现、安装和更新 | `~/.dsh/profiles/web` |
+| 视觉配置 | `dsh-desktop-vision 0.1.4` | 配置视觉桥所使用的引擎、接口和模型 | `~/.modlens/config.json` |
+| 视觉桥 | `ModLens 3.16.6` | 让纯文本模型读取粘贴的图片；可从市场更新 | `~/.dsh/profiles/web` |
+| 锚定预设 | `ffb845c5480a` | 锚定式标准与零工具锚定式标准 | `~/.dsh/.agent-presets/` |
 
-### 1. DeepSeek Harness（`dsh`）
+应用启动时会同步桌面自带组件，但会保留用户从市场更新到更新版本的 ModLens。捆绑版本固定在 [Makefile](Makefile) 中。
 
-| | |
-| --- | --- |
-| 上游 | [@deepseek-ai/dsh](https://www.npmjs.com/package/@deepseek-ai/dsh) · [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) |
-| 当前版本 | `0.1.0-rc.6` |
-| 许可证 | MIT，Copyright (c) 2026 DeepSeek · [docs/licenses/deepseek-harness.LICENSE](docs/licenses/deepseek-harness.LICENSE) |
-| 本仓库 | **不 vendoring 源码**。Flatpak 构建时 `make vendor` 打进 Node 24 + npm 包；Windows / macOS / deb / rpm 运行时调用本机 `dsh` |
+`dsh` 的查找顺序：`DSH_DESKTOP_DSH_BIN` → `--dsh` → 桌面更新目录 → Flatpak 内置路径 → 宿主机常见路径 → `PATH` → `npx`。壳启动的 dsh、市场和语音运行时默认通过 `https://registry.npmmirror.com` 获取 npm 包；已有 `npm_config_registry` / `NPM_CONFIG_REGISTRY` 会保留，也可用 `DSH_DESKTOP_NPM_REGISTRY` 显式覆盖。设置 `DSH_DESKTOP_NO_UPDATE=1` 或传入 `--no-update` 可关闭启动时的 dsh 更新检查。
 
-解析顺序：
+## 安全与边界
 
-1. 环境变量 `DSH_DESKTOP_DSH_BIN`
-2. 命令行 `--dsh`
-3. 应用自己的更新目录（`$XDG_DATA_HOME/dsh-desktop/dsh-prefix/bin/dsh`）
-4. **Flatpak**：内置 `/app/bin/dsh`
-5. **宿主机**：`~/.local/bin/dsh` → `~/.npm/_npx` 缓存 → `PATH` → `npx --yes @deepseek-ai/dsh`
-
-设 `DSH_DESKTOP_NO_UPDATE=1` 或传 `--no-update` 可关掉启动时的 npm 更新检查。
-
-### 2. ModLens（`@liustack/modlens`）
-
-| | |
-| --- | --- |
-| 上游 | [liustack/modlens](https://github.com/liustack/modlens) · [npm @liustack/modlens](https://www.npmjs.com/package/@liustack/modlens) |
-| 当前版本 | `3.16.6` |
-| 作者 | Leon Liu / [liustack](https://github.com/liustack) |
-| 许可证 | MIT · [docs/licenses/modlens.LICENSE](docs/licenses/modlens.LICENSE) |
-| 亮点 | 给 DeepSeek 带上眼睛：纯文本模型粘贴即可读图 |
-| 安装位置 | 启动时复制到 `~/.dsh/profiles/web/node_modules/@liustack/modlens` |
-
-官方安装方式（本应用已内置，一般不必再跑）：
-
-```bash
-npx -y @deepseek-ai/dsh plugin --profile web add @liustack/modlens@3.16.6
-```
-
-### 3. `dsh-desktop-vision`（本仓库）
-
-| | |
-| --- | --- |
-| 路径 | [`plugins/dsh-desktop-vision/`](plugins/dsh-desktop-vision/) |
-| 版本 | `0.1.4` |
-| 许可证 | 与本仓库相同（MIT） |
-| 作用 | 在官方 WebUI **设置 → 视觉模型** 增加表单，读写 `~/.modlens/config.json` |
-
-支持的引擎：
-
-| 引擎 | 默认接口 | 获取密钥 |
-| --- | --- | --- |
-| OpenAI 兼容 | `https://api.openai.com/v1` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
-| Gemini API | `https://generativelanguage.googleapis.com` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| Anthropic | `https://api.anthropic.com` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
-| Antigravity CLI | 本机 CLI，无需填 URL | [antigravity.google](https://antigravity.google/) |
-| Claude CLI | 本机 CLI，无需填 URL | [code.claude.com](https://code.claude.com) |
-
-外链在系统浏览器中打开（Tauri `on_navigation`），密钥只写在本机 ModLens 配置里。
-
-### 4. Anchored Standard 预设
-
-| | |
-| --- | --- |
-| 上游 | [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard) |
-| 钉选提交 | [`ffb845c5480adc953392a6db6f8a98ede621174b`](https://github.com/xiaobright/dsh-anchored-standard/commit/ffb845c5480adc953392a6db6f8a98ede621174b) |
-| 作者 | [xiaobright](https://github.com/xiaobright) |
-| 许可证 | MIT（含 DeepSeek 部分版权）· [LICENSE](docs/licenses/dsh-anchored-standard.LICENSE) · [NOTICE](docs/licenses/dsh-anchored-standard.NOTICE) |
-| 本仓库中的名称 | **锚定式标准（实验）**、**零工具锚定式标准（实验）**（`scripts/localize_preset.py` 本地化） |
-| 亮点 | 相对官方 Standard 约 **+8%**（Project2 Ability 91 → 98/99），同时拿回完整工具目录 |
-| 安装位置 | `~/.dsh/.agent-presets/anchored-standard` 与 `zero-anchored-standard` |
-
-NOTICE 写明：预设改编自 DeepSeek Harness Standard agent preset（[deepseek-harness@47f9438](https://github.com/deepseek-ai/deepseek-harness)）。这是社区实验 preset，**不是** DeepSeek 官方预设。若用户还没有默认 preset，桌面会把默认设为锚定式标准。
+- WebUI 只监听随机的 `127.0.0.1` 端口。
+- 语音模型按需下载；SenseVoice 识别在本机执行。
+- API 密钥只写入本机配置，不进入仓库或远端服务。
+- 卸载桌面壳不会删除 `~/.dsh` 中的会话、权限和工作区设置。
 
 ## 从源码运行
 
@@ -223,6 +175,7 @@ dsh-desktop/
 ├── src-tauri/                  # Tauri 窗口、命令、deb/rpm/nsis/dmg
 ├── crates/dsh-core/            # 启动 / 更新 / ModLens / 预设 / 剪贴板
 ├── plugins/dsh-desktop-vision/ # 设置 → 视觉模型
+├── plugins/dsh-desktop-voice/  # 设置 → 语音输入 + 对话框麦克风
 ├── data/                       # .desktop、图标、AppStream
 ├── flatpak/
 ├── docs/screenshots/           # README 截图
@@ -236,6 +189,19 @@ dsh-desktop/
 ## 反馈
 
 自用项目，会持续更新。bug、想法、打包问题都欢迎开 [issue](https://github.com/TommyFang2077/dsh-desktop/issues)。
+
+## 上游项目与许可证
+
+引用与许可证集中列在这里，正文只介绍用户能直接使用的能力。完整版权说明见 [THIRD_PARTY.md](THIRD_PARTY.md)，许可证副本见 [docs/licenses/](docs/licenses/)。
+
+| 组件 | 上游 / 固定版本 | 许可证 |
+| --- | --- | --- |
+| DeepSeek Harness | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · `0.1.0-rc.6` | [MIT](docs/licenses/deepseek-harness.LICENSE) |
+| ModLens | [liustack/modlens](https://github.com/liustack/modlens) · `3.16.6` | [MIT](docs/licenses/modlens.LICENSE) |
+| dshmarket | [dsh-market/dsh-market](https://github.com/dsh-market/dsh-market) · `1.9.0` | [MIT](docs/licenses/dshmarket.LICENSE) |
+| SenseVoiceSmall ONNX | [FunAudioLLM/SenseVoice](https://github.com/FunAudioLLM/SenseVoice) · 按需下载 | [MIT](docs/licenses/sensevoice.LICENSE) |
+| sherpa-onnx WASM | [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) · `1.13.5` · 按需下载 | Apache-2.0（许可证随运行时包提供） |
+| Anchored Standard | [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard) · [`ffb845c5480a`](https://github.com/xiaobright/dsh-anchored-standard/commit/ffb845c5480adc953392a6db6f8a98ede621174b) | [MIT](docs/licenses/dsh-anchored-standard.LICENSE) · [NOTICE](docs/licenses/dsh-anchored-standard.NOTICE) |
 
 ## 图标与商标
 

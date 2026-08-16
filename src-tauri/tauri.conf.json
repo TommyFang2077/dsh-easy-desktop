@@ -15,7 +15,13 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": ""
+    }
+  },
   "bundle": {
+    "createUpdaterArtifacts": true,
     "active": true,
     "targets": ["deb", "rpm", "nsis", "msi", "app", "dmg"],
     "publisher": "TommyFang2077",
@@ -23,7 +29,7 @@
     "copyright": "Copyright © 2026 TommyFang2077",
     "category": "DeveloperTool",
     "shortDescription": "Give DeepSeek eyes; Anchored Standard ~+8%",
-    "longDescription": "Official dsh WebUI in a native window. Built-in ModLens vision gives text-only DeepSeek eyes (paste to read images). Built-in Anchored Standard raises DeepSeek about 8% over official Standard on Project2 (Ability 91 to 98/99). Credentials stay in ~/.dsh.",
+    "longDescription": "Official dsh WebUI in a native window. Built-in ModLens vision gives text-only DeepSeek eyes (paste to read images). On-demand offline SenseVoice dictation writes speech into the composer (Ctrl+E); its model is not bundled. Built-in Anchored Standard raises DeepSeek about 8% over official Standard on Project2 (Ability 91 to 98/99). Credentials stay in ~/.dsh.",
     "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",
@@ -36,7 +42,9 @@
     ],
     "resources": [
       "../plugins/dsh-desktop-vision/",
+      "../plugins/dsh-desktop-voice/",
       "../vendor/modlens/",
+      "../vendor/dshmarket/",
       "../vendor/anchored-standard/",
       "../vendor/zero-anchored-standard/"
     ],
@@ -62,6 +70,7 @@
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
+      "infoPlist": "Info.plist",
       "dmg": {
         "appPosition": { "x": 180, "y": 170 },
         "applicationFolderPosition": { "x": 480, "y": 170 }

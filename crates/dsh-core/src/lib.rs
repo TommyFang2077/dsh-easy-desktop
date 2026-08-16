@@ -19,3 +19,4 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const ENV_BIN_OVERRIDE: &str = "DSH_DESKTOP_DSH_BIN";
 pub const ENV_CWD_OVERRIDE: &str = "DSH_DESKTOP_CWD";
 pub const ENV_NO_UPDATE: &str = "DSH_DESKTOP_NO_UPDATE";
+pub const ENV_NPM_REGISTRY: &str = "DSH_DESKTOP_NPM_REGISTRY";

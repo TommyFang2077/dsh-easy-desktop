@@ -155,7 +155,10 @@ fn ensure_one(paths: &BundledPaths, spec: &BundledPreset) -> PresetEnsureResult 
             return PresetEnsureResult {
                 status: "current",
                 version: version.clone(),
-                message: format!("已配置已安装的{label}（{}）", short_version(version.as_deref())),
+                message: format!(
+                    "已配置已安装的{label}（{}）",
+                    short_version(version.as_deref())
+                ),
             };
         }
         return PresetEnsureResult {
@@ -336,7 +339,11 @@ order: 5
 
     #[test]
     fn inserts_description_after_name() {
-        let updated = localize_preset_yml("name: Anchored Standard\norder: 5\n", PRESET_NAME_ZH, PRESET_DESCRIPTION_ZH);
+        let updated = localize_preset_yml(
+            "name: Anchored Standard\norder: 5\n",
+            PRESET_NAME_ZH,
+            PRESET_DESCRIPTION_ZH,
+        );
         assert!(updated.contains(PRESET_NAME_ZH));
         assert!(!updated.contains("name: Anchored Standard\n"));
         assert!(updated.contains(PRESET_DESCRIPTION_ZH));
@@ -371,7 +378,8 @@ name: Zero-Anchored Standard (experimental)
 description: Inject one zero-tool anchor turn.
 order: 6
 ";
-        let updated = localize_preset_yml(original, ZERO_PRESET_NAME_ZH, ZERO_PRESET_DESCRIPTION_ZH);
+        let updated =
+            localize_preset_yml(original, ZERO_PRESET_NAME_ZH, ZERO_PRESET_DESCRIPTION_ZH);
         assert!(updated.contains(ZERO_PRESET_NAME_ZH));
         assert!(updated.contains(ZERO_PRESET_DESCRIPTION_ZH));
         assert!(!updated.contains("Zero-Anchored"));
