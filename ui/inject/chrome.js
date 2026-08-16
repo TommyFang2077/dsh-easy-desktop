@@ -186,10 +186,15 @@
         const local = fromEvent ? fromEvent(e) : [];
         const text = clipboardText(e, "text/plain");
         const uris = clipboardText(e, "text/uri-list");
-        const steal = local.length > 0
-          || (pathLike && (pathLike(text) || pathLike(uris)))
-          || !String(text).trim();
-        if (!steal) return;
+        const html = clipboardText(e, "text/html");
+        const imagePath = Boolean(pathLike && (pathLike(text) || pathLike(uris)));
+        const hasText = Boolean(String(text).trim() || String(html).trim());
+        // Image files in the event, or a pasted image path, are ours. Empty
+        // payload is the Linux case where the image is only on the native
+        // clipboard. Non-empty text/html must reach the page — do not cancel
+        // first and then fail to recover an image.
+        if (!local.length && !imagePath && hasText) return;
+
         e.preventDefault();
         e.stopImmediatePropagation();
         window.__dshDesktopIngesting = true;

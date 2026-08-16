@@ -46,10 +46,13 @@ class ClipboardIngestTests(unittest.TestCase):
         self.assertIn("navigator.clipboard.read", chrome)
         self.assertIn("read_clipboard_images", chrome)
         self.assertIn("__dshDesktopIngesting", chrome)
+        self.assertIn('clipboardText(e, "text/html")', chrome)
         self.assertNotIn(
             'item.kind === "file" && item.getAsFile()',
             chrome,
         )
+        self.assertNotIn("steal", chrome)
+        self.assertNotIn("|| !String(text).trim()", chrome)
 
 
 class BundledAttributionTests(unittest.TestCase):
