@@ -7,6 +7,8 @@ set -euo pipefail
 GITHUB_REPO="${GITHUB_REPO:-TommyFang2077/dsh-easy-desktop}"
 REPO_OWNER="${GITEA_OWNER:-TomHanck4}"
 REPO_NAME="${GITEA_REPO:-dsh-easy-desktop}"
+GITEA_OWNER="$REPO_OWNER"
+GITEA_REPO="$REPO_NAME"
 GITEA_BASE_URL="${GITEA_BASE_URL:-http://192.168.30.33:3000}"
 PACKAGE_BASE_URL="${PACKAGE_BASE_URL:-https://git.fangsiyuan.top/api/packages/TomHanck4/generic/dsh-easy-desktop-updater}"
 RELEASE_TAG="${RELEASE_TAG:-latest}"
