@@ -15,8 +15,19 @@ jobs:
         run: |
           set -euo pipefail
           apk add --no-cache curl jq python3 >/dev/null 2>&1 || true
-          rm -rf repo
-          git clone -q --depth 1 http://192.168.30.33:3000/TomHanck4/dsh-easy-desktop.git repo
+          for i in $(seq 1 40); do
+            rm -rf repo
+            git clone -q --depth 1 http://192.168.30.33:3000/TomHanck4/dsh-easy-desktop.git repo 2>/dev/null || { sleep 5; continue; }
+            if grep -qF 'GITEA_OWNER="$REPO_OWNER"' repo/scripts/publish-gitea-actions.sh 2>/dev/null; then
+              echo "publish scripts fresh (attempt ${i})"
+              break
+            fi
+            sleep 10
+          done
+          grep -qF 'GITEA_OWNER="$REPO_OWNER"' repo/scripts/publish-gitea-actions.sh || {
+            echo "mirror still stale after ~6 minutes" >&2
+            exit 1
+          }
           cd repo
           bash scripts/publish-gitea-actions.sh
         env:
