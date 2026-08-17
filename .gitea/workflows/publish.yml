@@ -15,7 +15,7 @@ jobs:
         run: |
           set -euo pipefail
           SHA=$(curl -fsS -H "Authorization: token ${PUBLISH_TOKEN}" \
-            "http://192.168.30.33:3000/api/v1/repos/TomHanck4/dsh-easy-desktop/commits/main?limit=1" \
+            "http://192.168.30.33:3000/api/v1/repos/TomHanck4/dsh-easy-desktop/commits?sha=main&limit=1" \
             | jq -r '.[0].id')
           echo "pinning publish scripts at mirror commit ${SHA}"
           curl -fsSL -o repo.tar.gz "https://codeload.github.com/TommyFang2077/dsh-easy-desktop/tar.gz/${SHA}"
