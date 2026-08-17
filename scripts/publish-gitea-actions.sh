@@ -22,6 +22,7 @@ fi
   exit 1
 }
 VERSION="${RELEASE_TAG#v}"
+export RELEASE_VERSION="$VERSION"
 echo "target: $RELEASE_TAG ($VERSION)"
 echo "gitea:   $GITEA_BASE_URL"
 
