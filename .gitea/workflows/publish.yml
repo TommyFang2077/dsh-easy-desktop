@@ -14,15 +14,13 @@ jobs:
       - name: Publish to Gitea
         run: |
           set -euo pipefail
-          SHA=$(curl -fsS -H "Authorization: token ${PUBLISH_TOKEN}" \
-            "http://192.168.30.33:3000/api/v1/repos/TomHanck4/dsh-easy-desktop/commits?sha=main&limit=1" \
-            | jq -r '.[0].id')
-          echo "pinning publish scripts at mirror commit ${SHA}"
-          curl -fsSL -o repo.tar.gz "https://codeload.github.com/TommyFang2077/dsh-easy-desktop/tar.gz/${SHA}"
-          tar -xzf repo.tar.gz
-          cd dsh-easy-desktop-*
+          apk add --no-cache curl jq python3 >/dev/null 2>&1 || true
+          rm -rf repo
+          git clone -q --depth 1 http://192.168.30.33:3000/TomHanck4/dsh-easy-desktop.git repo
+          cd repo
           bash scripts/publish-gitea-actions.sh
         env:
-          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          GITEA_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           GITEA_BASE_URL: http://192.168.30.33:3000
           RELEASE_TAG: ${{ github.event.inputs.tag }}
+        working-directory: /tmp
