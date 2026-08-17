@@ -11,15 +11,18 @@ jobs:
   publish:
     runs-on: [self-hosted, linux, x64]
     steps:
-      - name: Download publish scripts
-        run: |
-          BASE=https://raw.githubusercontent.com/TommyFang2077/dsh-easy-desktop/$GITHUB_SHA
-          curl -fsSL -o build-gitea-update.py "$BASE/scripts/build-gitea-update.py"
-          curl -fsSL -o publish-gitea-release.sh "$BASE/scripts/publish-gitea-release.sh"
-          curl -fsSL -o publish-gitea-actions.sh "$BASE/scripts/publish-gitea-actions.sh"
       - name: Publish to Gitea
-        run: bash publish-gitea-actions.sh
+        run: |
+          set -euo pipefail
+          SHA=$(curl -fsS -H "Authorization: token ${PUBLISH_TOKEN}" \
+            "http://192.168.30.33:3000/api/v1/repos/TomHanck4/dsh-easy-desktop/commits/main?limit=1" \
+            | jq -r '.[0].id')
+          echo "pinning publish scripts at mirror commit ${SHA}"
+          curl -fsSL -o repo.tar.gz "https://codeload.github.com/TommyFang2077/dsh-easy-desktop/tar.gz/${SHA}"
+          tar -xzf repo.tar.gz
+          cd dsh-easy-desktop-*
+          bash scripts/publish-gitea-actions.sh
         env:
-          GITEA_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           GITEA_BASE_URL: http://192.168.30.33:3000
           RELEASE_TAG: ${{ github.event.inputs.tag }}

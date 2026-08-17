@@ -46,12 +46,12 @@ echo "downloaded $COUNT assets"
   exit 1
 }
 
-python3 build-gitea-update.py \
+python3 scripts/build-gitea-update.py \
   --flat-artifacts artifacts \
   --output staged \
   --version "$VERSION" \
   --pub-date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --package-base-url "$PACKAGE_BASE_URL"
 
-bash publish-gitea-release.sh staged
+bash scripts/publish-gitea-release.sh staged
 echo "published $RELEASE_TAG to Gitea"
