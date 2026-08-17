@@ -68,18 +68,19 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 | 平台 | 产物 | 运行时要求 |
 | --- | --- | --- |
-| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ 本机 `dsh` |
-| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + 本机 `dsh` |
-| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + 本机 `dsh` |
+| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ Node.js/npm（首次启动自动安装 `dsh` 到内置目录） |
+| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + Node.js/npm（首次启动自动安装 `dsh` 到内置目录） |
+| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + Node.js/npm（首次启动自动安装 `dsh` 到内置目录） |
 | Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与 `@deepseek-ai/dsh` |
 
-除 Flatpak 外，需要先安装 `dsh`：
+除 Flatpak 外，需要本机有 Node.js/npm，用于首次启动自动下载并安装 `dsh`。也可以提前安装或指定路径：
 
 ```bash
 npm install -g @deepseek-ai/dsh
+# 或设置 DSH_DESKTOP_DSH_BIN 指向 dsh 可执行文件
 ```
 
-安装后直接启动，等待启动页完成即可进入官方 WebUI。
+未检测到 `dsh` 时，第一次启动会显示「正在下载并安装内置 dsh…」，完成后自动进入官方 WebUI。
 
 ## 功能一览
 

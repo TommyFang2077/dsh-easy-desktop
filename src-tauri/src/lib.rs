@@ -357,14 +357,38 @@ fn boot(app: AppHandle) {
     );
 
     let launcher = DshLauncher::new(state.args.dsh.clone(), state.args.cwd.clone());
+    let missing = match launcher.resolve() {
+        Ok(_) => !launcher.has_installed_dsh().unwrap_or(true),
+        Err(error) => error.is_missing(),
+    };
+    let mut bootstrap_message: Option<String> = None;
+    if missing && !state.args.no_update {
+        let _ = app.emit(
+            "status",
+            StatusPayload {
+                message: "未检测到 dsh，正在下载并安装内置 dsh…".into(),
+            },
+        );
+        let result = update_dsh(true);
+        mark_update_checked();
+        log::info!(
+            "dsh not found; bootstrap install: {} ({})",
+            result.status,
+            result.message
+        );
+        bootstrap_message = Some(result.message);
+    }
     let process = match launcher.start() {
         Ok(p) => Arc::new(p),
         Err(err) => {
+            let detail = bootstrap_message
+                .map(|message| format!("{message}\n{err}"))
+                .unwrap_or_default();
             let _ = app.emit(
                 "error",
                 ErrorPayload {
                     message: err.to_string(),
-                    detail: String::new(),
+                    detail,
                 },
             );
             return;

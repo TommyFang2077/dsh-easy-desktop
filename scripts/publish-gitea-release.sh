@@ -57,7 +57,10 @@ else
   release_body="大陆镜像安装包；文件与 GitHub Release 同源。应用内更新包由 Tauri 签名校验。"
 fi
 
-release_json=$(curl_retry curl --fail --silent --show-error -H "$AUTH" "$API/releases/tags/$RELEASE_TAG")
+# 404 is expected when the mirror has not yet created a release for the tag;
+# the create branch below handles it. Only retry transient failures, so the
+# lookup itself must not go through curl_retry.
+release_json=$(curl --fail --silent --show-error -H "$AUTH" "$API/releases/tags/$RELEASE_TAG" || true)
 release_id=$(printf '%s' "$release_json" | jq -r '.id // empty')
 if [[ -z "$release_id" ]]; then
   release_payload=$(jq -n \

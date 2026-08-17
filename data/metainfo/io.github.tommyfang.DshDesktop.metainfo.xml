@@ -41,6 +41,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.3" date="2026-08-17">
+      <description>
+        <ul>
+          <li>Non-Flatpak installs auto-install dsh into the app's built-in prefix on first launch when no dsh is found</li>
+          <li>Fixed Gitea mirror publish failing on a first-version 404 (release lookup no longer retries 404)</li>
+          <li>Windows prefers the dsh.cmd shim over the extensionless POSIX script in the npx cache</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.2" date="2026-08-17">
       <description>
         <ul>

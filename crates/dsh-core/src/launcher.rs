@@ -26,6 +26,15 @@ impl DshNotFound {
     fn new(msg: impl Into<String>) -> Self {
         Self::Message(msg.into())
     }
+
+    /// True when resolution successfully analyzed every candidate and found no
+    /// usable dsh at all (as opposed to an invalid user-supplied override).
+    pub fn is_missing(&self) -> bool {
+        matches!(
+            self,
+            DshNotFound::Message(message) if message.contains("找不到")
+        )
+    }
 }
 
 pub fn strip_ansi(text: &str) -> String {
@@ -59,6 +68,18 @@ pub fn find_npx_dsh_bins() -> Vec<PathBuf> {
     if let Some(globbed) = pattern.to_str() {
         if let Ok(paths) = glob_simple(globbed) {
             for path in paths {
+                // npm also drops an extensionless POSIX shim (`dsh`) next to
+                // `dsh.cmd`; Windows cannot CreateProcess that file, so prefer
+                // the cmd wrapper when present.
+                #[cfg(windows)]
+                let path = {
+                    let cmd = path.with_extension("cmd");
+                    if cmd.is_file() {
+                        cmd
+                    } else {
+                        path
+                    }
+                };
                 if is_executable(&path) {
                     bins.push(path);
                 }
@@ -105,7 +126,7 @@ impl DshLauncher {
         }
     }
 
-    pub fn resolve(&self) -> Result<Vec<String>, DshNotFound> {
+    fn collect_candidates(&self) -> Result<Vec<Vec<String>>, DshNotFound> {
         let mut candidates: Vec<Vec<String>> = Vec::new();
 
         if let Ok(env_override) = std::env::var(ENV_BIN_OVERRIDE) {
@@ -163,6 +184,11 @@ impl DshLauncher {
             }
         }
 
+        Ok(candidates)
+    }
+
+    pub fn resolve(&self) -> Result<Vec<String>, DshNotFound> {
+        let candidates = self.collect_candidates()?;
         let chosen = candidates.into_iter().next().ok_or_else(|| {
             if self.in_flatpak {
                 DshNotFound::new(
@@ -170,11 +196,20 @@ impl DshLauncher {
                 )
             } else {
                 DshNotFound::new(
-                    "找不到 DeepSeek Harness (dsh)，也没有可用的 npx。\n请先安装：npm install -g @deepseek-ai/dsh\n或用 DSH_DESKTOP_DSH_BIN 指定 dsh 的完整路径。",
+                    "找不到 DeepSeek Harness (dsh)。\n请安装 Node.js/npm（首次启动会自动安装 dsh），或用 DSH_DESKTOP_DSH_BIN 指定 dsh 的完整路径。",
                 )
             }
         })?;
         Ok(chosen)
+    }
+
+    /// True when a real dsh binary is available without relying on the
+    /// transient `npx --yes @deepseek-ai/dsh` fallback.
+    pub fn has_installed_dsh(&self) -> Result<bool, DshNotFound> {
+        let candidates = self.collect_candidates()?;
+        Ok(candidates
+            .iter()
+            .any(|candidate| candidate.first().map(String::as_str) != Some("npx")))
     }
 
     pub fn web_argv(&self) -> Result<Vec<String>, DshNotFound> {
@@ -404,6 +439,15 @@ mod tests {
         let argv = DshLauncher::new(None, None).resolve().unwrap();
         std::env::remove_var(ENV_BIN_OVERRIDE);
         assert_eq!(argv, vec!["echo"]);
+    }
+
+    #[test]
+    fn has_installed_dsh_with_override() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var(ENV_BIN_OVERRIDE, "echo");
+        let launcher = DshLauncher::new(None, None);
+        assert!(launcher.has_installed_dsh().unwrap());
+        std::env::remove_var(ENV_BIN_OVERRIDE);
     }
 
     #[test]
