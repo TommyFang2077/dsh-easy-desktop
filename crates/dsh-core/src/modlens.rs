@@ -4,14 +4,13 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 use serde_json::{json, Value};
 
-use crate::paths::{copy_tree, dsh_home, replace_symlink, BundledPaths};
+use crate::paths::{copy_tree, dsh_home, extract_tar_gz, replace_symlink, BundledPaths};
 
 pub const PACKAGE: &str = "@liustack/modlens";
 pub const VOICE_PACKAGE: &str = "dsh-desktop-voice";
 pub const MARKET_PACKAGE: &str = "dshmarket";
 pub const MODLENS_VERSION: &str = "3.16.6";
 const VOICE_PLUGIN_VERSION: &str = "0.4.0";
-#[cfg(test)]
 const MARKET_PLUGIN_VERSION: &str = "1.11.3";
 const MANAGED_BUNDLES_DIR: &str = ".dsh-desktop/bundles";
 const INBOX_BUNDLES: &[&str] = &["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"];
@@ -98,6 +97,38 @@ pub fn bundled_market_prefix(paths: &BundledPaths) -> Option<PathBuf> {
         .or_else(|| paths.find_dir("vendor/dshmarket", "node_modules/dshmarket/package.json"))
 }
 
+fn bundled_archive_prefix(
+    paths: &BundledPaths,
+    profile: &Path,
+    archive_name: &str,
+    cache_name: &str,
+    marker: &str,
+) -> std::io::Result<Option<PathBuf>> {
+    let Some(archive) = paths.find_file(archive_name) else {
+        return Ok(None);
+    };
+    let cache = profile
+        .join(".dsh-desktop/bundled-prefixes")
+        .join(cache_name);
+    if cache.join(marker).is_file() {
+        return Ok(Some(cache));
+    }
+    let staging = cache.with_extension("staging");
+    extract_tar_gz(&archive, &staging)?;
+    if !staging.join(marker).is_file() {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Ok(None);
+    }
+    if cache.exists() {
+        std::fs::remove_dir_all(&cache)?;
+    }
+    if let Some(parent) = cache.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::rename(staging, &cache)?;
+    Ok(Some(cache))
+}
+
 fn install_into_profile(src_prefix: &Path, profile: &Path) -> std::io::Result<()> {
     let dest_pkg = package_dir(profile);
     copy_tree(&package_dir(src_prefix), &dest_pkg, true)?;
@@ -167,7 +198,16 @@ fn install_voice_plugin(paths: &BundledPaths, profile: &Path) -> bool {
 }
 
 fn install_market_plugin(paths: &BundledPaths, profile: &Path) -> std::io::Result<Option<String>> {
-    let Some(prefix) = bundled_market_prefix(paths) else {
+    let archive_cache = format!("dshmarket-{MARKET_PLUGIN_VERSION}");
+    let prefix = bundled_archive_prefix(
+        paths,
+        profile,
+        "dshmarket.tar.gz",
+        &archive_cache,
+        "node_modules/dshmarket/package.json",
+    )?
+    .or_else(|| bundled_market_prefix(paths));
+    let Some(prefix) = prefix else {
         return Ok(None);
     };
     let src = prefix.join("node_modules").join(MARKET_PACKAGE);
@@ -405,8 +445,24 @@ pub fn remap_default_text_model(settings_text: &str) -> String {
 }
 
 pub fn ensure_modlens(paths: &BundledPaths) -> ModlensEnsureResult {
-    let src = bundled_modlens_prefix(paths);
     let profile = web_profile_dir();
+    let archive_cache = format!("modlens-{MODLENS_VERSION}");
+    let src = match bundled_archive_prefix(
+        paths,
+        &profile,
+        "modlens.tar.gz",
+        &archive_cache,
+        "node_modules/@liustack/modlens/package.json",
+    ) {
+        Ok(prefix) => prefix.or_else(|| bundled_modlens_prefix(paths)),
+        Err(error) => {
+            return ModlensEnsureResult {
+                status: "failed",
+                version: Some(MODLENS_VERSION.to_string()),
+                message: format!("内置 ModLens 解压失败：{error}"),
+            };
+        }
+    };
     let installed = read_modlens_version(&profile);
     let version = src
         .as_ref()
@@ -519,6 +575,10 @@ fn ensure_modlens_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
 
     #[test]
     fn empty_file_gets_managed_overlay() {
@@ -599,7 +659,8 @@ ui-theme:
     #[test]
     fn bundled_market_is_added_to_profile() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let market = tmp.path().join("market/node_modules/dshmarket");
+        let source = tmp.path().join("archive-src");
+        let market = source.join("node_modules/dshmarket");
         std::fs::create_dir_all(&market).unwrap();
         std::fs::write(
             market.join("package.json"),
@@ -607,6 +668,11 @@ ui-theme:
         )
         .unwrap();
         std::fs::write(market.join("index.js"), "export {}\n").unwrap();
+        let archive_path = tmp.path().join("dshmarket.tar.gz");
+        let encoder = GzEncoder::new(File::create(&archive_path).unwrap(), Compression::default());
+        let mut archive = tar::Builder::new(encoder);
+        archive.append_dir_all(".", source).unwrap();
+        archive.into_inner().unwrap().finish().unwrap();
         let paths = BundledPaths::default().with_resource_dir(tmp.path().to_path_buf());
         let profile = tmp.path().join("profile");
 

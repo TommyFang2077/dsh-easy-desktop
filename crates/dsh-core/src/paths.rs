@@ -1,5 +1,9 @@
 use std::env;
+use std::fs::File;
 use std::path::{Path, PathBuf};
+
+use flate2::read::GzDecoder;
+use tar::Archive;
 
 /// XDG-style data directory (`~/.local/share` on Linux).
 pub fn data_home() -> PathBuf {
@@ -87,6 +91,13 @@ impl BundledPaths {
         }
         None
     }
+
+    pub fn find_file(&self, rel: &str) -> Option<PathBuf> {
+        self.roots()
+            .into_iter()
+            .map(|root| root.join(rel))
+            .find(|candidate| candidate.is_file())
+    }
 }
 
 fn repo_roots() -> Vec<PathBuf> {
@@ -118,6 +129,15 @@ pub fn copy_tree(src: &Path, dest: &Path, keep_symlinks: bool) -> std::io::Resul
         std::fs::create_dir_all(parent)?;
     }
     copy_tree_inner(src, dest, keep_symlinks)
+}
+
+pub fn extract_tar_gz(src: &Path, dest: &Path) -> std::io::Result<()> {
+    if dest.exists() {
+        std::fs::remove_dir_all(dest)?;
+    }
+    std::fs::create_dir_all(dest)?;
+    let file = File::open(src)?;
+    Archive::new(GzDecoder::new(file)).unpack(dest)
 }
 
 fn copy_tree_inner(src: &Path, dest: &Path, keep_symlinks: bool) -> std::io::Result<()> {

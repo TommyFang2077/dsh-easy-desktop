@@ -24,8 +24,11 @@ fi
 ANCHORED_DIR="vendor/anchored-standard"
 ZERO_DIR="vendor/zero-anchored-standard"
 MODLENS_DIR="vendor/modlens"
+MODLENS_ARCHIVE="vendor/modlens.tar.gz"
 MARKET_DIR="vendor/dshmarket"
 DSH_DIR="vendor/dsh-prefix"
+MARKET_ARCHIVE="vendor/dshmarket.tar.gz"
+DSH_ARCHIVE="vendor/dsh-prefix.tar.gz"
 
 
 rm -rf vendor/.anchored-src "$ANCHORED_DIR" "$ZERO_DIR"
@@ -45,20 +48,26 @@ printf '%s\n' "$ANCHORED_COMMIT" > "$ZERO_DIR/.dsh-desktop-source"
 "$PYTHON" scripts/localize_preset.py "$ZERO_DIR/preset.yml" zero
 rm -rf vendor/.anchored-src
 
-rm -rf "$DSH_DIR"
+rm -rf "$DSH_DIR" "$DSH_ARCHIVE"
 mkdir -p "$DSH_DIR"
 npm_config_registry="$DSH_NPM_REGISTRY" npm install --prefix "$DSH_DIR" --global --prefer-offline --no-audit --no-fund "@deepseek-ai/dsh@${DSH_VERSION}"
+tar -czf "$DSH_ARCHIVE" -C "$DSH_DIR" .
 
-rm -rf "$MODLENS_DIR"
+rm -rf "$MODLENS_DIR" "$MODLENS_ARCHIVE"
 mkdir -p "$MODLENS_DIR"
 npm_config_registry="$NPM_REGISTRY" npm install --prefix "$MODLENS_DIR" --prefer-offline --no-audit --no-fund "@liustack/modlens@${MODLENS_VERSION}"
+tar -czf "$MODLENS_ARCHIVE" -C "$MODLENS_DIR" .
 
-rm -rf "$MARKET_DIR"
+rm -rf "$MARKET_DIR" "$MARKET_ARCHIVE"
 mkdir -p "$MARKET_DIR"
 npm_config_registry="$NPM_REGISTRY" npm install --prefix "$MARKET_DIR" --prefer-offline --no-audit --no-fund "dshmarket@${MARKET_VERSION}"
 "$PYTHON" scripts/patch-dshmarket-mainland.py
+tar -czf "$MARKET_ARCHIVE" -C "$MARKET_DIR" .
 
 test -f "$DSH_DIR/lib/node_modules/@deepseek-ai/dsh/package.json" || test -f "$DSH_DIR/node_modules/@deepseek-ai/dsh/package.json"
+test -f "$DSH_ARCHIVE"
+test -f "$MODLENS_ARCHIVE"
+test -f "$MARKET_ARCHIVE"
 test -f "$ANCHORED_DIR/preset.yml"
 test -f "$ZERO_DIR/preset.yml"
 test -d "$MODLENS_DIR/node_modules/@liustack/modlens"

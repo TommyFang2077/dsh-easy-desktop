@@ -375,6 +375,7 @@ impl DshProcess {
         if child.try_wait().ok().flatten().is_some() {
             return;
         }
+        #[cfg(unix)]
         let pid = child.id();
         #[cfg(unix)]
         unsafe {

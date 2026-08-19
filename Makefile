@@ -8,8 +8,11 @@ MARKET_VERSION := 1.11.3
 ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
+VENDOR_ARCHIVE := vendor/dsh-prefix.tar.gz
 MODLENS_DIR := vendor/modlens
+MODLENS_ARCHIVE := vendor/modlens.tar.gz
 MARKET_DIR := vendor/dshmarket
+MARKET_ARCHIVE := vendor/dshmarket.tar.gz
 ANCHORED_DIR := vendor/anchored-standard
 ZERO_DIR := vendor/zero-anchored-standard
 FLATPAK     ?= flatpak
@@ -46,11 +49,14 @@ test:
 
 vendor:
 	mkdir -p vendor
-	rm -rf $(VENDOR_DIR) $(MODLENS_DIR) $(MARKET_DIR)
+	rm -rf $(VENDOR_DIR) $(MODLENS_DIR) $(MARKET_DIR) $(VENDOR_ARCHIVE) $(MODLENS_ARCHIVE) $(MARKET_ARCHIVE)
 	npm_config_registry=https://registry.npmmirror.com npm install --prefix=$(CURDIR)/$(VENDOR_DIR) --global --prefer-offline --no-audit --no-fund @deepseek-ai/dsh@$(DSH_VERSION)
+	tar -czf $(VENDOR_ARCHIVE) -C $(VENDOR_DIR) .
 	npm install --prefix=$(CURDIR)/$(MODLENS_DIR) --prefer-offline --no-audit --no-fund @liustack/modlens@$(MODLENS_VERSION)
+	tar -czf $(MODLENS_ARCHIVE) -C $(MODLENS_DIR) .
 	npm install --prefix=$(CURDIR)/$(MARKET_DIR) --prefer-offline --no-audit --no-fund dshmarket@$(MARKET_VERSION)
 	$(PYTHON) scripts/patch-dshmarket-mainland.py
+	tar -czf $(MARKET_ARCHIVE) -C $(MARKET_DIR) .
 	$(MAKE) vendor-anchored
 
 vendor-native:

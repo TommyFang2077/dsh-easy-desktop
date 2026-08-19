@@ -41,10 +41,10 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../vendor/dsh-prefix/",
+      "../vendor/dsh-prefix.tar.gz",
       "../plugins/dsh-desktop-voice/",
-      "../vendor/modlens/",
-      "../vendor/dshmarket/",
+      "../vendor/modlens.tar.gz",
+      "../vendor/dshmarket.tar.gz",
       "../vendor/anchored-standard/",
       "../vendor/zero-anchored-standard/"
     ],

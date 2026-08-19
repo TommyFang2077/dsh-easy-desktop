@@ -52,7 +52,7 @@ modules:
       build-args:
         - --share=network
     build-commands:
-      - mkdir -p vendor/modlens vendor/dshmarket vendor/anchored-standard vendor/zero-anchored-standard
+      - mkdir -p vendor/anchored-standard vendor/zero-anchored-standard && touch vendor/dsh-prefix.tar.gz vendor/modlens.tar.gz vendor/dshmarket.tar.gz
       - export DSH_DESKTOP_UPDATER_PUBKEY=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['plugins']['updater']['pubkey'])")
       - cargo build --release --locked --offline || cargo build --release
       - install -Dm755 target/release/dsh-desktop ${FLATPAK_DEST}/bin/dsh-desktop

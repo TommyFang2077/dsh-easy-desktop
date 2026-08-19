@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::paths::{cache_home, copy_tree, data_home, is_flatpak, BundledPaths};
+use crate::paths::{cache_home, copy_tree, data_home, extract_tar_gz, is_flatpak, BundledPaths};
 use crate::{ENV_NO_UPDATE, ENV_NPM_REGISTRY};
 
 pub const DSH_PACKAGE: &str = "@deepseek-ai/dsh";
@@ -79,20 +79,33 @@ pub fn bundled_dsh_prefix(paths: &BundledPaths) -> Option<PathBuf> {
         .or_else(|| paths.find_dir("vendor/dsh-prefix", MARKER))
 }
 
-fn install_bundled_prefix(src: &Path, dest: &Path) -> Result<String, String> {
-    let staging = dest.with_extension("staging");
-    copy_tree(src, &staging, true).map_err(|error| error.to_string())?;
+fn activate_staged_prefix(staging: &Path, dest: &Path) -> Result<String, String> {
     let Some(version) =
-        read_version(&staging).filter(|_| crate::launcher::is_executable(&dsh_bin(&staging)))
+        read_version(staging).filter(|_| crate::launcher::is_executable(&dsh_bin(staging)))
     else {
-        let _ = std::fs::remove_dir_all(&staging);
+        let _ = std::fs::remove_dir_all(staging);
         return Err("内置 dsh 资源不完整".to_string());
     };
     if dest.exists() {
         std::fs::remove_dir_all(dest).map_err(|error| error.to_string())?;
     }
-    std::fs::rename(&staging, dest).map_err(|error| error.to_string())?;
+    std::fs::rename(staging, dest).map_err(|error| error.to_string())?;
     Ok(version)
+}
+
+fn install_bundled_archive(src: &Path, dest: &Path) -> Result<String, String> {
+    let staging = dest.with_extension("staging");
+    if let Err(error) = extract_tar_gz(src, &staging) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(error.to_string());
+    }
+    activate_staged_prefix(&staging, dest)
+}
+
+fn install_bundled_prefix(src: &Path, dest: &Path) -> Result<String, String> {
+    let staging = dest.with_extension("staging");
+    copy_tree(src, &staging, true).map_err(|error| error.to_string())?;
+    activate_staged_prefix(&staging, dest)
 }
 
 /// Copy the packaged official dsh into the writable update prefix once.
@@ -106,6 +119,9 @@ pub fn provision_bundled_dsh(paths: &BundledPaths) -> Result<Option<String>, Str
         if let Some(version) = read_version(&dest) {
             return Ok(Some(version));
         }
+    }
+    if let Some(archive) = paths.find_file("dsh-prefix.tar.gz") {
+        return install_bundled_archive(&archive, &dest).map(Some);
     }
     let Some(src) = bundled_dsh_prefix(paths) else {
         return Ok(None);
@@ -381,6 +397,10 @@ pub fn update_dsh(enabled: bool) -> UpdateResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
     use tempfile::TempDir;
 
     #[test]
@@ -441,6 +461,36 @@ mod tests {
         }
 
         assert_eq!(install_bundled_prefix(&src, &dest).unwrap(), "0.1.0-rc.7");
+        assert_eq!(read_version(&dest).as_deref(), Some("0.1.0-rc.7"));
+        assert!(crate::launcher::is_executable(&dsh_bin(&dest)));
+    }
+
+    #[test]
+    fn bundled_archive_is_extracted_as_a_usable_core() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("src");
+        let dest = tmp.path().join("dest");
+        let package = package_json(&src);
+        std::fs::create_dir_all(package.parent().unwrap()).unwrap();
+        std::fs::write(&package, r#"{"version":"0.1.0-rc.7"}"#).unwrap();
+        let bin = dsh_bin(&src);
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&bin, "#!/usr/bin/env node\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let archive_path = tmp.path().join("dsh-prefix.tar.gz");
+        let encoder = GzEncoder::new(File::create(&archive_path).unwrap(), Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        builder.append_dir_all(".", &src).unwrap();
+        builder.into_inner().unwrap().finish().unwrap();
+
+        assert_eq!(
+            install_bundled_archive(&archive_path, &dest).unwrap(),
+            "0.1.0-rc.7"
+        );
         assert_eq!(read_version(&dest).as_deref(), Some("0.1.0-rc.7"));
         assert!(crate::launcher::is_executable(&dsh_bin(&dest)));
     }
