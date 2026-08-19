@@ -13,7 +13,8 @@ STAGING_DIR="${1:?usage: publish-gitea-release.sh STAGING_DIR}"
 API="${GITEA_BASE_URL%/}/api/v1/repos/${GITEA_OWNER}/${GITEA_REPO}"
 PACKAGE_BASE="${GITEA_BASE_URL%/}/api/packages/${GITEA_OWNER}/generic/dsh-easy-desktop-updater"
 AUTH="Authorization: token ${GITEA_TOKEN}"
-MAX_UPLOAD_BYTES="${GITEA_MAX_UPLOAD_BYTES:-52400000}"
+MAX_UPLOAD_BYTES="${GITEA_MAX_UPLOAD_BYTES:-50000000}"
+CURL_TIMEOUT=(--connect-timeout 30 --max-time 180)
 
 mirror_file_allowed() {
   local file=$1
@@ -50,7 +51,7 @@ remote_matches_file() {
   local url=$2
   local local_sha remote_sha
   local_sha=$(sha256sum "$file" | cut -d ' ' -f1)
-  remote_sha=$(curl --fail --silent --show-error -H "$AUTH" "$url" | sha256sum | cut -d ' ' -f1) || return 1
+  remote_sha=$(curl "${CURL_TIMEOUT[@]}" --fail --silent --show-error -H "$AUTH" "$url" | sha256sum | cut -d ' ' -f1) || return 1
   [[ "$remote_sha" == "$local_sha" ]]
 }
 
@@ -59,7 +60,7 @@ upload_package() {
   local url=$2
   local attempts=0
   while true; do
-    if curl --fail --silent --show-error --http1.1 -H 'Expect:' -H "$AUTH" \
+    if curl "${CURL_TIMEOUT[@]}" --fail --silent --show-error --http1.1 -H 'Expect:' -H "$AUTH" \
       --upload-file "$file" "$url" >/dev/null; then
       return 0
     fi
@@ -82,7 +83,7 @@ release_asset_matches() {
   local file=$2
   local name=$3
   local url
-  url=$(curl --fail --silent --show-error -H "$AUTH" "$API/releases/$release_id/assets" \
+  url=$(curl "${CURL_TIMEOUT[@]}" --fail --silent --show-error -H "$AUTH" "$API/releases/$release_id/assets" \
     | jq -r --arg name "$name" '[.[] | select(.name == $name) | .browser_download_url][0] // empty') || return 1
   [[ -n "$url" ]] && remote_matches_file "$file" "$url"
 }
@@ -93,7 +94,7 @@ upload_release_asset() {
   local name=$3
   local attempts=0
   while true; do
-    if curl --fail --silent --show-error --http1.1 -H 'Expect:' -H "$AUTH" \
+    if curl "${CURL_TIMEOUT[@]}" --fail --silent --show-error --http1.1 -H 'Expect:' -H "$AUTH" \
       -F "attachment=@$file" "$API/releases/$release_id/assets?name=$name" >/dev/null; then
       return 0
     fi

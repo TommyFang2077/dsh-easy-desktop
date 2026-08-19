@@ -259,7 +259,7 @@ jobs:
             --notes "$(python3 scripts/release-notes.py notes "docs/release-notes/v${VERSION}.md")" \
             --package-base-url "https://git.fangsiyuan.top/api/packages/TomHanck4/generic/dsh-easy-desktop-updater" \
             --fallback-base-url "https://github.com/TommyFang2077/dsh-easy-desktop/releases/download/v${VERSION}" \
-            --mirror-max-bytes 52400000
+            --mirror-max-bytes 50000000
 
       - name: Publish Gitea release and updater feed
         env:
@@ -269,5 +269,5 @@ jobs:
           GITEA_REPO: dsh-easy-desktop
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
-          GITEA_MAX_UPLOAD_BYTES: 52400000
+          GITEA_MAX_UPLOAD_BYTES: 50000000
         run: bash scripts/publish-gitea-release.sh staged
