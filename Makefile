@@ -2,9 +2,9 @@ PYTHON      ?= python3
 CARGO       ?= cargo
 PREFIX      ?= $(HOME)/.local
 APP_ID      := io.github.tommyfang.DshDesktop
-DSH_VERSION := 0.1.0-rc.6
+DSH_VERSION := 0.1.0-rc.7
 MODLENS_VERSION := 3.16.6
-MARKET_VERSION := 1.10.1
+MARKET_VERSION := 1.11.3
 ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
@@ -47,14 +47,14 @@ test:
 vendor:
 	mkdir -p vendor
 	rm -rf $(VENDOR_DIR) $(MODLENS_DIR) $(MARKET_DIR)
-	npm install --prefix=$(CURDIR)/$(VENDOR_DIR) --global --prefer-offline --no-audit --no-fund @deepseek-ai/dsh@$(DSH_VERSION)
+	npm_config_registry=https://registry.npmmirror.com npm install --prefix=$(CURDIR)/$(VENDOR_DIR) --global --prefer-offline --no-audit --no-fund @deepseek-ai/dsh@$(DSH_VERSION)
 	npm install --prefix=$(CURDIR)/$(MODLENS_DIR) --prefer-offline --no-audit --no-fund @liustack/modlens@$(MODLENS_VERSION)
 	npm install --prefix=$(CURDIR)/$(MARKET_DIR) --prefer-offline --no-audit --no-fund dshmarket@$(MARKET_VERSION)
 	$(PYTHON) scripts/patch-dshmarket-mainland.py
 	$(MAKE) vendor-anchored
 
 vendor-native:
-	MODLENS_VERSION=$(MODLENS_VERSION) MARKET_VERSION=$(MARKET_VERSION) ANCHORED_COMMIT=$(ANCHORED_COMMIT) ANCHORED_REPO=$(ANCHORED_REPO) bash scripts/vendor-native.sh
+	DSH_VERSION=$(DSH_VERSION) MODLENS_VERSION=$(MODLENS_VERSION) MARKET_VERSION=$(MARKET_VERSION) ANCHORED_COMMIT=$(ANCHORED_COMMIT) ANCHORED_REPO=$(ANCHORED_REPO) bash scripts/vendor-native.sh
 
 vendor-anchored:
 	rm -rf vendor/.anchored-src $(ANCHORED_DIR) $(ZERO_DIR)

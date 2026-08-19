@@ -11,8 +11,10 @@ pub const VOICE_PACKAGE: &str = "dsh-desktop-voice";
 pub const MARKET_PACKAGE: &str = "dshmarket";
 pub const MODLENS_VERSION: &str = "3.16.6";
 const VOICE_PLUGIN_VERSION: &str = "0.4.0";
-const MARKET_PLUGIN_VERSION: &str = "1.10.1";
+#[cfg(test)]
+const MARKET_PLUGIN_VERSION: &str = "1.11.3";
 const MANAGED_BUNDLES_DIR: &str = ".dsh-desktop/bundles";
+const INBOX_BUNDLES: &[&str] = &["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"];
 pub const HIDE_PLAIN_TWINS_JS: &str = include_str!("../../../ui/inject/hide-twins.js");
 
 pub const MANAGED_OVERLAY: &str = "\
@@ -169,34 +171,35 @@ fn install_market_plugin(paths: &BundledPaths, profile: &Path) -> std::io::Resul
         return Ok(None);
     };
     let src = prefix.join("node_modules").join(MARKET_PACKAGE);
-    let Some(version) = read_pkg_version(&src) else {
+    let Some(bundled_version) = read_pkg_version(&src) else {
         return Ok(None);
     };
-    if version != MARKET_PLUGIN_VERSION {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("bundled dshmarket version {version} does not match {MARKET_PLUGIN_VERSION}"),
-        ));
-    }
     let dest = profile.join("node_modules").join(MARKET_PACKAGE);
-    if read_pkg_version(&dest).as_deref() != Some(version.as_str()) {
+    let installed = read_pkg_version(&dest);
+    let replace_bundle = bundle_should_replace(installed.as_deref(), &bundled_version);
+    if replace_bundle {
         copy_tree(&src, &dest, true)?;
     }
-    for dep in [
-        "@deepseek-ai/cordis",
-        "@deepseek-ai/cosmokit",
-        "@standard-schema/spec",
-    ] {
-        let src_dep = prefix.join("node_modules").join(dep);
-        if src_dep.is_dir() {
-            copy_tree(&src_dep, &profile.join("node_modules").join(dep), true)?;
+    if replace_bundle || installed.as_deref() == Some(bundled_version.as_str()) {
+        for dep in [
+            "@deepseek-ai/cordis",
+            "@deepseek-ai/cosmokit",
+            "@standard-schema/spec",
+        ] {
+            let src_dep = prefix.join("node_modules").join(dep);
+            if src_dep.is_dir() {
+                copy_tree(&src_dep, &profile.join("node_modules").join(dep), true)?;
+            }
         }
     }
-    let fallback = dsh_home()
-        .join("profiles/node_modules")
-        .join(MARKET_PACKAGE);
-    let _ = replace_symlink(&fallback, &dest);
-    Ok(Some(version))
+    let installed_after = read_pkg_version(&dest).unwrap_or(bundled_version);
+    if profile == web_profile_dir() {
+        let fallback = dsh_home()
+            .join("profiles/node_modules")
+            .join(MARKET_PACKAGE);
+        let _ = replace_symlink(&fallback, &dest);
+    }
+    Ok(Some(installed_after))
 }
 
 fn ensure_manifest(profile: &Path, packages: &BTreeMap<String, String>) -> std::io::Result<()> {
@@ -228,6 +231,18 @@ fn ensure_manifest(profile: &Path, packages: &BTreeMap<String, String>) -> std::
             *bundles = json!(["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]);
         }
     }
+    let bundles = data["dsh"]["profile"]["bundles"].as_array_mut().unwrap();
+    bundles.retain(|value| {
+        let Some(name) = value.as_str() else {
+            return false;
+        };
+        INBOX_BUNDLES.contains(&name)
+            || profile
+                .join("node_modules")
+                .join(name)
+                .join("package.json")
+                .is_file()
+    });
     for (name, version) in packages {
         data["dependencies"][name] = json!(version);
         let arr = data["dsh"]["profile"]["bundles"].as_array_mut().unwrap();
@@ -600,10 +615,7 @@ ui-theme:
         let manifest: Value =
             serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
                 .unwrap();
-        assert_eq!(
-            manifest["dependencies"]["dshmarket"],
-            MARKET_PLUGIN_VERSION
-        );
+        assert_eq!(manifest["dependencies"]["dshmarket"], MARKET_PLUGIN_VERSION);
         assert!(manifest["dsh"]["profile"]["bundles"]
             .as_array()
             .unwrap()
@@ -628,6 +640,13 @@ ui-theme:
             std::fs::write(plugin.join("client.js"), "export {}\n").unwrap();
             std::fs::write(plugin.join("index.js"), "export {}\n").unwrap();
         }
+        let market = tmp.path().join("market/node_modules/dshmarket");
+        std::fs::create_dir_all(&market).unwrap();
+        std::fs::write(
+            market.join("package.json"),
+            format!(r#"{{"name":"dshmarket","version":"{MARKET_PLUGIN_VERSION}"}}"#),
+        )
+        .unwrap();
         let paths = BundledPaths::default().with_resource_dir(tmp.path().to_path_buf());
         let profile = tmp.path().join("profile");
 
@@ -647,6 +666,67 @@ ui-theme:
                 .join("package.json")
                 .is_file());
         }
+    }
+
+    #[test]
+    fn missing_community_bundle_is_removed_before_boot() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let profile = tmp.path().join("profile");
+        let installed = profile.join("node_modules/installed-plugin");
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::write(installed.join("package.json"), r#"{"version":"1.0.0"}"#).unwrap();
+        std::fs::write(
+            profile.join("package.json"),
+            r#"{
+  "dependencies": {},
+  "dsh": {"profile": {"bundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-web-app",
+    "installed-plugin",
+    "missing-plugin"
+  ]}}
+}"#,
+        )
+        .unwrap();
+
+        ensure_manifest(&profile, &BTreeMap::new()).unwrap();
+
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
+                .unwrap();
+        let bundles = manifest["dsh"]["profile"]["bundles"].as_array().unwrap();
+        assert!(bundles.iter().any(|item| item == "installed-plugin"));
+        assert!(!bundles.iter().any(|item| item == "missing-plugin"));
+    }
+
+    #[test]
+    fn newer_market_is_preserved_and_pinned_in_manifest() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let market = tmp.path().join("market/node_modules/dshmarket");
+        std::fs::create_dir_all(&market).unwrap();
+        std::fs::write(
+            market.join("package.json"),
+            format!(r#"{{"name":"dshmarket","version":"{MARKET_PLUGIN_VERSION}"}}"#),
+        )
+        .unwrap();
+        let paths = BundledPaths::default().with_resource_dir(tmp.path().to_path_buf());
+        let profile = tmp.path().join("profile");
+        let installed = profile.join("node_modules/dshmarket");
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::write(
+            installed.join("package.json"),
+            r#"{"name":"dshmarket","version":"9.0.0"}"#,
+        )
+        .unwrap();
+        std::fs::write(installed.join("newer-marker"), "keep").unwrap();
+
+        ensure_modlens_inner(&paths, None, &profile, None, MODLENS_VERSION).unwrap();
+
+        assert!(installed.join("newer-marker").is_file());
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(profile.join("package.json")).unwrap())
+                .unwrap();
+        assert_eq!(manifest["dependencies"]["dshmarket"], "9.0.0");
     }
 
     #[test]

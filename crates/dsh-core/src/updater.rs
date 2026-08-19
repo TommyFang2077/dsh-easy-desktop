@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::paths::{cache_home, data_home};
+use crate::paths::{cache_home, copy_tree, data_home, is_flatpak, BundledPaths};
 use crate::{ENV_NO_UPDATE, ENV_NPM_REGISTRY};
 
 pub const DSH_PACKAGE: &str = "@deepseek-ai/dsh";
@@ -39,19 +39,25 @@ pub fn update_prefix() -> PathBuf {
     data_home().join("dsh-desktop/dsh-prefix")
 }
 
-pub fn update_dsh_bin() -> PathBuf {
-    let prefix = update_prefix();
+fn dsh_bin(prefix: &Path) -> PathBuf {
     #[cfg(windows)]
     {
-        let cmd = prefix.join("dsh.cmd");
-        if cmd.is_file() {
-            return cmd;
-        }
+        return prefix.join("dsh.cmd");
     }
+    #[cfg(not(windows))]
     prefix.join("bin/dsh")
 }
 
+pub fn update_dsh_bin() -> PathBuf {
+    dsh_bin(&update_prefix())
+}
+
 pub fn package_json(prefix: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        return prefix.join("node_modules/@deepseek-ai/dsh/package.json");
+    }
+    #[cfg(not(windows))]
     prefix.join("lib/node_modules/@deepseek-ai/dsh/package.json")
 }
 
@@ -61,6 +67,50 @@ pub fn read_version(prefix: &Path) -> Option<String> {
     data.get("version")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
+}
+
+pub fn bundled_dsh_prefix(paths: &BundledPaths) -> Option<PathBuf> {
+    #[cfg(windows)]
+    const MARKER: &str = "node_modules/@deepseek-ai/dsh/package.json";
+    #[cfg(not(windows))]
+    const MARKER: &str = "lib/node_modules/@deepseek-ai/dsh/package.json";
+    paths
+        .find_dir("dsh-prefix", MARKER)
+        .or_else(|| paths.find_dir("vendor/dsh-prefix", MARKER))
+}
+
+fn install_bundled_prefix(src: &Path, dest: &Path) -> Result<String, String> {
+    let staging = dest.with_extension("staging");
+    copy_tree(src, &staging, true).map_err(|error| error.to_string())?;
+    let Some(version) =
+        read_version(&staging).filter(|_| crate::launcher::is_executable(&dsh_bin(&staging)))
+    else {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err("内置 dsh 资源不完整".to_string());
+    };
+    if dest.exists() {
+        std::fs::remove_dir_all(dest).map_err(|error| error.to_string())?;
+    }
+    std::fs::rename(&staging, dest).map_err(|error| error.to_string())?;
+    Ok(version)
+}
+
+/// Copy the packaged official dsh into the writable update prefix once.
+/// Flatpak already exposes its bundled core directly under `/app`.
+pub fn provision_bundled_dsh(paths: &BundledPaths) -> Result<Option<String>, String> {
+    if is_flatpak() {
+        return Ok(read_version(Path::new(BUNDLED_PREFIX)));
+    }
+    let dest = update_prefix();
+    if crate::launcher::is_executable(&dsh_bin(&dest)) {
+        if let Some(version) = read_version(&dest) {
+            return Ok(Some(version));
+        }
+    }
+    let Some(src) = bundled_dsh_prefix(paths) else {
+        return Ok(None);
+    };
+    install_bundled_prefix(&src, &dest).map(Some)
 }
 
 pub fn find_npm() -> Option<PathBuf> {
@@ -371,6 +421,28 @@ mod tests {
             selected_npm_registry(None, Some(OsStr::new("https://packages.example.com/npm")),),
             OsStr::new("https://packages.example.com/npm")
         );
+    }
+
+    #[test]
+    fn bundled_prefix_is_copied_as_a_usable_core() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("src");
+        let dest = tmp.path().join("dest");
+        let package = package_json(&src);
+        std::fs::create_dir_all(package.parent().unwrap()).unwrap();
+        std::fs::write(&package, r#"{"version":"0.1.0-rc.7"}"#).unwrap();
+        let bin = dsh_bin(&src);
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&bin, "#!/usr/bin/env node\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        assert_eq!(install_bundled_prefix(&src, &dest).unwrap(), "0.1.0-rc.7");
+        assert_eq!(read_version(&dest).as_deref(), Some("0.1.0-rc.7"));
+        assert!(crate::launcher::is_executable(&dsh_bin(&dest)));
     }
 
     #[test]

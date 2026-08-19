@@ -30,6 +30,121 @@ curl_retry() {
   done
 }
 
+# Gitea can finish storing an upload after its front proxy has already returned
+# 504. Confirm the uploaded bytes before retrying; mere existence is not enough
+# when this workflow replaces artifacts under an existing release version.
+remote_matches_file() {
+  local file=$1
+  local url=$2
+  local local_sha remote_sha
+  local_sha=$(sha256sum "$file" | cut -d ' ' -f1)
+  remote_sha=$(curl --fail --silent --show-error -H "$AUTH" "$url" | sha256sum | cut -d ' ' -f1) || return 1
+  [[ "$remote_sha" == "$local_sha" ]]
+}
+
+upload_package() {
+  local file=$1
+  local url=$2
+  local attempts=0
+  while true; do
+    if curl --fail --silent --show-error --http1.1 -H 'Expect:' -H "$AUTH" \
+      --upload-file "$file" "$url" >/dev/null; then
+      return 0
+    fi
+    if remote_matches_file "$file" "$url"; then
+      echo "upload completed behind gateway timeout: $(basename "$file")" >&2
+      return 0
+    fi
+    attempts=$((attempts + 1))
+    if (( attempts >= 4 )); then
+      echo "package upload failed after 4 attempts: $(basename "$file")" >&2
+      return 1
+    fi
+    echo "package upload failed (attempt ${attempts}/3), retrying: $(basename "$file")" >&2
+    sleep 10
+  done
+}
+
+release_asset_matches() {
+  local release_id=$1
+  local file=$2
+  local name=$3
+  local url
+  url=$(curl --fail --silent --show-error -H "$AUTH" "$API/releases/$release_id/assets" \
+    | jq -r --arg name "$name" '[.[] | select(.name == $name) | .browser_download_url][0] // empty') || return 1
+  [[ -n "$url" ]] && remote_matches_file "$file" "$url"
+}
+
+upload_release_asset() {
+  local release_id=$1
+  local file=$2
+  local name=$3
+  local attempts=0
+  while true; do
+    if curl --fail --silent --show-error --http1.1 -H 'Expect:' -H "$AUTH" \
+      -F "attachment=@$file" "$API/releases/$release_id/assets?name=$name" >/dev/null; then
+      return 0
+    fi
+    if release_asset_matches "$release_id" "$file" "$name"; then
+      echo "release asset completed behind gateway timeout: $name" >&2
+      return 0
+    fi
+    attempts=$((attempts + 1))
+    if (( attempts >= 4 )); then
+      echo "release asset upload failed after 4 attempts: $name" >&2
+      return 1
+    fi
+    echo "release asset upload failed (attempt ${attempts}/3), retrying: $name" >&2
+    sleep 10
+  done
+}
+
+delete_package_version() {
+  local url=$1
+  local staging=$2
+  local include_latest=$3
+  local attempt file name present
+  curl --silent --show-error -X DELETE -H "$AUTH" "$url" >/dev/null || true
+  for attempt in $(seq 1 60); do
+    present=0
+    for file in "$staging"/*; do
+      [[ -f "$file" ]] || continue
+      name=$(basename "$file")
+      if [[ "$include_latest" != 1 && "$name" == "latest.json" ]]; then
+        continue
+      fi
+      if curl --fail --silent --show-error --head -H "$AUTH" "$url/$name" >/dev/null 2>&1; then
+        present=1
+        break
+      fi
+    done
+    if (( present == 0 )); then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "package version was not deleted: $url" >&2
+  return 1
+}
+
+delete_release_asset() {
+  local release_id=$1
+  local asset_id=$2
+  local name=$3
+  local attempt
+  curl --silent --show-error -X DELETE -H "$AUTH" \
+    "$API/releases/$release_id/assets/$asset_id" >/dev/null || true
+  for attempt in $(seq 1 60); do
+    if ! curl --fail --silent --show-error -H "$AUTH" "$API/releases/$release_id/assets" \
+      | jq -e --arg name "$name" 'any(.[]; .name == $name)' >/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "release asset was not deleted: $name" >&2
+  return 1
+}
+
 # The Gitea repository is a pull mirror. Kick a background sync; the trigger
 # response itself is irrelevant (it can 504 while the sync runs on Gitea).
 # The tag poll below is the actual gate.
@@ -82,19 +197,16 @@ else
 fi
 
 # Versioned generic package: immutable URLs consumed by latest.json.
-curl --silent --show-error -X DELETE -H "$AUTH" \
-  "$PACKAGE_BASE/$RELEASE_VERSION" >/dev/null || true
+delete_package_version "$PACKAGE_BASE/$RELEASE_VERSION" "$STAGING_DIR" 0
 for file in "$STAGING_DIR"/*; do
   [[ -f "$file" && "$(basename "$file")" != "latest.json" ]] || continue
-  curl_retry curl --fail --silent --show-error -H "$AUTH" --upload-file "$file" \
-    "$PACKAGE_BASE/$RELEASE_VERSION/$(basename "$file")" >/dev/null
+  upload_package "$file" "$PACKAGE_BASE/$RELEASE_VERSION/$(basename "$file")"
 done
 
 # Stable updater endpoint. Gitea generic packages are immutable, so replace
 # the synthetic "latest" version on each completed release.
-curl --silent --show-error -X DELETE -H "$AUTH" "$PACKAGE_BASE/latest" >/dev/null || true
-curl_retry curl --fail --silent --show-error -H "$AUTH" --upload-file "$STAGING_DIR/latest.json" \
-  "$PACKAGE_BASE/latest/latest.json" >/dev/null
+delete_package_version "$PACKAGE_BASE/latest" "$STAGING_DIR" 1
+upload_package "$STAGING_DIR/latest.json" "$PACKAGE_BASE/latest/latest.json"
 
 assets=$(curl_retry curl --fail --silent --show-error -H "$AUTH" "$API/releases/$release_id/assets")
 for file in "$STAGING_DIR"/*; do
@@ -106,9 +218,7 @@ for file in "$STAGING_DIR"/*; do
   esac
   old_id=$(printf '%s' "$assets" | jq -r --arg name "$name" '[.[] | select(.name == $name) | .id][0] // empty')
   if [[ -n "$old_id" ]]; then
-    curl_retry curl --fail --silent --show-error -X DELETE -H "$AUTH" \
-      "$API/releases/$release_id/assets/$old_id" >/dev/null
+    delete_release_asset "$release_id" "$old_id" "$name"
   fi
-  curl_retry curl --fail --silent --show-error -H "$AUTH" \
-    -F "attachment=@$file" "$API/releases/$release_id/assets?name=$name" >/dev/null
+  upload_release_asset "$release_id" "$file" "$name"
 done

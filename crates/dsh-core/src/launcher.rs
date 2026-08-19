@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -230,7 +230,7 @@ impl DshLauncher {
         cmd.args(&argv[1..])
             .current_dir(&self.workspace)
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(Stdio::piped())
             .stdin(Stdio::null());
         configure_npm_registry(&mut cmd);
         #[cfg(unix)]
@@ -248,7 +248,8 @@ impl DshLauncher {
             .spawn()
             .map_err(|exc| DshNotFound::new(format!("无法启动 dsh web: {exc}")))?;
         let stdout = child.stdout.take();
-        Ok(DshProcess::new(child, stdout, self.in_flatpak))
+        let stderr = child.stderr.take();
+        Ok(DshProcess::new(child, stdout, stderr, self.in_flatpak))
     }
 }
 
@@ -280,6 +281,39 @@ pub fn is_executable(path: &Path) -> bool {
     }
 }
 
+fn capture_output<R: Read + Send + 'static>(
+    stream: R,
+    lines: Arc<Mutex<VecDeque<String>>>,
+    url: Arc<Mutex<Option<String>>>,
+    detect_url: bool,
+) {
+    thread::spawn(move || {
+        let reader = BufReader::new(stream);
+        for line in reader.lines() {
+            let Ok(line) = line else { break };
+            let clean = strip_ansi(&line);
+            let trimmed = clean.trim_end();
+            if !trimmed.is_empty() {
+                if let Ok(mut buf) = lines.lock() {
+                    if buf.len() == 400 {
+                        buf.pop_front();
+                    }
+                    buf.push_back(trimmed.to_string());
+                }
+            }
+            if detect_url {
+                if let Some(found) = parse_dsh_url(&line) {
+                    if let Ok(mut slot) = url.lock() {
+                        if slot.is_none() {
+                            *slot = Some(found);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 pub struct DshProcess {
     child: Arc<Mutex<Child>>,
     pub in_flatpak: bool,
@@ -289,7 +323,12 @@ pub struct DshProcess {
 }
 
 impl DshProcess {
-    fn new(child: Child, stdout: Option<std::process::ChildStdout>, in_flatpak: bool) -> Self {
+    fn new(
+        child: Child,
+        stdout: Option<std::process::ChildStdout>,
+        stderr: Option<std::process::ChildStderr>,
+        in_flatpak: bool,
+    ) -> Self {
         let proc = Self {
             child: Arc::new(Mutex::new(child)),
             in_flatpak,
@@ -298,31 +337,15 @@ impl DshProcess {
             started_at: Instant::now(),
         };
         if let Some(stdout) = stdout {
-            let lines = Arc::clone(&proc.lines);
-            let url = Arc::clone(&proc.url);
-            thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines() {
-                    let Ok(line) = line else { break };
-                    let clean = strip_ansi(&line);
-                    let trimmed = clean.trim_end();
-                    if !trimmed.is_empty() {
-                        if let Ok(mut buf) = lines.lock() {
-                            if buf.len() == 400 {
-                                buf.pop_front();
-                            }
-                            buf.push_back(trimmed.to_string());
-                        }
-                    }
-                    if let Some(found) = parse_dsh_url(&line) {
-                        if let Ok(mut slot) = url.lock() {
-                            if slot.is_none() {
-                                *slot = Some(found);
-                            }
-                        }
-                    }
-                }
-            });
+            capture_output(stdout, Arc::clone(&proc.lines), Arc::clone(&proc.url), true);
+        }
+        if let Some(stderr) = stderr {
+            capture_output(
+                stderr,
+                Arc::clone(&proc.lines),
+                Arc::clone(&proc.url),
+                false,
+            );
         }
         proc
     }

@@ -1,6 +1,8 @@
 import json
 import subprocess
 import tempfile
+import tomllib
+
 import unittest
 from pathlib import Path
 
@@ -129,6 +131,15 @@ class GiteaUpdateManifestTests(unittest.TestCase):
                     "linux-x86_64",
                 )
                 self.assertNotIn("linux-x86_64-app", manifest["platforms"])
+
+
+class ReleaseVersionTests(unittest.TestCase):
+    def test_cargo_and_tauri_versions_match(self):
+        cargo = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
+        tauri = json.loads(
+            (ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(cargo["workspace"]["package"]["version"], tauri["version"])
 
 
 if __name__ == "__main__":

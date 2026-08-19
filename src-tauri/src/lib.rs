@@ -16,7 +16,7 @@ use dsh_core::launcher::{DshLauncher, DshProcess, URL_TIMEOUT_SECONDS};
 use dsh_core::modlens::ensure_modlens;
 use dsh_core::paths::BundledPaths;
 use dsh_core::preset::ensure_anchored_standard;
-use dsh_core::updater::{mark_update_checked, update_check_due, update_dsh};
+use dsh_core::updater::{mark_update_checked, provision_bundled_dsh, update_check_due, update_dsh};
 use dsh_core::{APP_NAME, ENV_NO_UPDATE};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -322,6 +322,20 @@ fn boot(app: AppHandle) {
             message: "正在启动…".into(),
         },
     );
+    match provision_bundled_dsh(&state.paths) {
+        Ok(Some(version)) => log::info!("official dsh core ready: {version}"),
+        Ok(None) => log::warn!("packaged official dsh core not found; using launcher fallbacks"),
+        Err(error) => {
+            let _ = app.emit(
+                "error",
+                ErrorPayload {
+                    message: "内置 dsh 准备失败。".into(),
+                    detail: error,
+                },
+            );
+            return;
+        }
+    }
 
     if state.args.force_update && !state.args.no_update {
         let _ = app.emit(

@@ -41,6 +41,11 @@ jobs:
           VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          TAURI_VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          if [ "$TAURI_VERSION" != "$VERSION" ]; then
+            echo "src-tauri/tauri.conf.json version $TAURI_VERSION must match Cargo.toml version $VERSION" >&2
+            exit 1
+          fi
           test -f "docs/release-notes/v${VERSION}.md" || {
             echo "docs/release-notes/v${VERSION}.md is required for a release (see docs/release-notes/v0.1.1.md)" >&2
             exit 1
@@ -145,8 +150,8 @@ jobs:
             跨平台安装包：Windows NSIS/MSI、macOS DMG（Apple Silicon 与 Intel）、Linux deb/rpm。
             Flatpak 由同一次 Release 工作流另外上传。
 
-            - Windows / macOS / deb / rpm 需要本机已安装 `dsh`（`npm i -g @deepseek-ai/dsh`），或设置 `DSH_DESKTOP_DSH_BIN`。
-            - Flatpak 自带 Node.js 与 `dsh`。
+            - Windows / macOS / deb / rpm 自带官方 `dsh`；本机有 npm 时，壳会在线更新官方内核。
+            - Flatpak 自带 Node.js 与官方 `dsh`。
             - macOS 包未公证，需在「系统设置 → 隐私与安全性」中允许打开。
             - 中国大陆用户可从 Gitea 镜像下载安装包；壳更新使用同一镜像并在安装前校验 Tauri 签名。
           releaseDraft: false

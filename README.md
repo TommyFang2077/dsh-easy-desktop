@@ -68,19 +68,12 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 | 平台 | 产物 | 运行时要求 |
 | --- | --- | --- |
-| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ Node.js/npm（首次启动自动安装 `dsh` 到内置目录） |
-| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + Node.js/npm（首次启动自动安装 `dsh` 到内置目录） |
-| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + Node.js/npm（首次启动自动安装 `dsh` 到内置目录） |
-| Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与 `@deepseek-ai/dsh` |
+| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ Node.js |
+| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + Node.js |
+| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + Node.js |
+| Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与官方 `dsh` |
 
-除 Flatpak 外，需要本机有 Node.js/npm，用于首次启动自动下载并安装 `dsh`。也可以提前安装或指定路径：
-
-```bash
-npm install -g @deepseek-ai/dsh
-# 或设置 DSH_DESKTOP_DSH_BIN 指向 dsh 可执行文件
-```
-
-未检测到 `dsh` 时，第一次启动会显示「正在下载并安装内置 dsh…」，完成后自动进入官方 WebUI。
+所有安装包都自带官方 `dsh` 内核，首次启动无需下载。非 Flatpak 需要本机 Node.js 运行内核；检测到 npm 时，壳会每天检查并把新版官方内核安装到可写更新目录。也可以设置 `DSH_DESKTOP_DSH_BIN` 指定其他 `dsh` 可执行文件。
 
 ## 功能一览
 
@@ -97,15 +90,15 @@ npm install -g @deepseek-ai/dsh
 
 | 组件 | 当前基线 | 用途 | 本地位置 |
 | --- | --- | --- | --- |
-| DeepSeek Harness | `0.1.0-rc.6` | 官方 WebUI；Flatpak 内置，其他安装包调用本机 `dsh` | `~/.dsh` |
+| DeepSeek Harness | `0.1.0-rc.7` | 所有安装包内置官方 WebUI；检测到 npm 时在线更新 | `~/.local/share/dsh-desktop/dsh-prefix`（平台对应数据目录） |
 | 离线语音 | `dsh-desktop-voice 0.4.0` | 麦克风、快捷键、SenseVoice / OpenAI 兼容听写 | 配置 `~/.config/dsh-desktop/voice.json`；模型在系统缓存目录 |
-| 插件市场 | `dshmarket 1.10.1` | 社区插件的发现、安装和更新 | `~/.dsh/profiles/web` |
+| 插件市场 | `dshmarket 1.11.3` | 社区插件的发现、安装和更新 | `~/.dsh/profiles/web` |
 | 视觉桥 | `ModLens 3.16.6` | 让纯文本模型读取粘贴的图片；可从市场更新；引擎配置在「设置 → 插件」 | `~/.dsh/profiles/web`；配置 `~/.modlens/config.json` |
 | 锚定预设 | `ffb845c5480a` | 锚定式标准与零工具锚定式标准 | `~/.dsh/.agent-presets/` |
 
-应用启动时会同步桌面自带组件，但会保留用户从市场更新到更新版本的 ModLens。捆绑版本固定在 [Makefile](Makefile) 中。
+应用启动时会同步桌面自带组件，但会保留用户从市场更新到更新版本的 ModLens 和市场。捆绑版本固定在 [Makefile](Makefile) 中。
 
-`dsh` 的查找顺序：`DSH_DESKTOP_DSH_BIN` → `--dsh` → 桌面更新目录 → Flatpak 内置路径 → 宿主机常见路径 → `PATH` → `npx`。壳启动的 dsh、市场和语音运行时默认通过 `https://registry.npmmirror.com` 获取 npm 包；已有 `npm_config_registry` / `NPM_CONFIG_REGISTRY` 会保留，也可用 `DSH_DESKTOP_NPM_REGISTRY` 显式覆盖。设置 `DSH_DESKTOP_NO_UPDATE=1` 或传入 `--no-update` 可关闭启动时的 dsh 更新检查。
+`dsh` 的查找顺序：`DSH_DESKTOP_DSH_BIN` → `--dsh` → 桌面更新目录（首次从安装包复制） → Flatpak 内置路径 → 宿主机常见路径 → `PATH` → `npx`。壳启动的 dsh、市场和语音运行时默认通过 `https://registry.npmmirror.com` 获取 npm 包；已有 `npm_config_registry` / `NPM_CONFIG_REGISTRY` 会保留，也可用 `DSH_DESKTOP_NPM_REGISTRY` 显式覆盖。设置 `DSH_DESKTOP_NO_UPDATE=1` 或传入 `--no-update` 可关闭 dsh 在线更新，但不会禁用安装包内的内核。
 
 ## 安全与边界
 
@@ -125,7 +118,7 @@ npm install -g @deepseek-ai/dsh
 ```bash
 git clone https://github.com/TommyFang2077/dsh-easy-desktop.git
 cd dsh-easy-desktop
-make vendor-native          # ModLens + 锚定预设（Tauri 打包资源）
+make vendor-native          # 官方 dsh + ModLens + 市场 + 锚定预设（Tauri 打包资源）
 make run                    # 普通模式（跳过更新，便于开发）
 make dev                    # 开 WebView 检查器和调试日志
 cargo run -p dsh-desktop -- --cwd ~/your-project
@@ -149,7 +142,7 @@ cargo tauri build --bundles app,dmg      # macOS
 
 ## Flatpak
 
-Flatpak 是唯一把 `dsh` 打进包内的渠道。
+Flatpak 额外内置 Node.js 24，因此不依赖宿主机 Node.js。
 
 ```bash
 flatpak remote-add --user --if-not-exists flathub \
@@ -195,9 +188,9 @@ dsh-desktop/
 
 | 组件 | 上游 / 固定版本 | 许可证 |
 | --- | --- | --- |
-| DeepSeek Harness | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · `0.1.0-rc.6` | [MIT](docs/licenses/deepseek-harness.LICENSE) |
+| DeepSeek Harness | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · `0.1.0-rc.7` | [MIT](docs/licenses/deepseek-harness.LICENSE) |
 | ModLens | [liustack/modlens](https://github.com/liustack/modlens) · `3.16.6` | [MIT](docs/licenses/modlens.LICENSE) |
-| dshmarket | [dsh-market/dsh-market](https://github.com/dsh-market/dsh-market) · `1.9.0` | [MIT](docs/licenses/dshmarket.LICENSE) |
+| dshmarket | [dsh-market/dsh-market](https://github.com/dsh-market/dsh-market) · `1.11.3` | [MIT](docs/licenses/dshmarket.LICENSE) |
 | SenseVoiceSmall ONNX | [FunAudioLLM/SenseVoice](https://github.com/FunAudioLLM/SenseVoice) · 按需下载 | [MIT](docs/licenses/sensevoice.LICENSE) |
 | sherpa-onnx WASM | [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) · `1.13.5` · 按需下载 | Apache-2.0（许可证随运行时包提供） |
 | Anchored Standard | [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard) · [`ffb845c5480a`](https://github.com/xiaobright/dsh-anchored-standard/commit/ffb845c5480adc953392a6db6f8a98ede621174b) | [MIT](docs/licenses/dsh-anchored-standard.LICENSE) · [NOTICE](docs/licenses/dsh-anchored-standard.NOTICE) |
