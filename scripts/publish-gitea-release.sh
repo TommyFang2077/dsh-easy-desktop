@@ -13,7 +13,7 @@ STAGING_DIR="${1:?usage: publish-gitea-release.sh STAGING_DIR}"
 API="${GITEA_BASE_URL%/}/api/v1/repos/${GITEA_OWNER}/${GITEA_REPO}"
 PACKAGE_BASE="${GITEA_BASE_URL%/}/api/packages/${GITEA_OWNER}/generic/dsh-easy-desktop-updater"
 AUTH="Authorization: token ${GITEA_TOKEN}"
-MAX_UPLOAD_BYTES="${GITEA_MAX_UPLOAD_BYTES:-50000000}"
+MAX_UPLOAD_BYTES="${GITEA_MAX_UPLOAD_BYTES:-40000000}"
 CURL_TIMEOUT=(--connect-timeout 30 --max-time 180)
 
 mirror_file_allowed() {
