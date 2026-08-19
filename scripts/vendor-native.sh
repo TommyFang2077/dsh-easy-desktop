@@ -29,6 +29,7 @@ MARKET_DIR="vendor/dshmarket"
 DSH_DIR="vendor/dsh-prefix"
 MARKET_ARCHIVE="vendor/dshmarket.tar.gz"
 DSH_ARCHIVE="vendor/dsh-prefix.tar.gz"
+DSH_ARCHIVE_MAX_BYTES="${DSH_ARCHIVE_MAX_BYTES:-45000000}"
 
 
 rm -rf vendor/.anchored-src "$ANCHORED_DIR" "$ZERO_DIR"
@@ -51,17 +52,21 @@ rm -rf vendor/.anchored-src
 rm -rf "$DSH_DIR" "$DSH_ARCHIVE"
 mkdir -p "$DSH_DIR"
 npm_config_registry="$DSH_NPM_REGISTRY" npm install --prefix "$DSH_DIR" --global --prefer-offline --no-audit --no-fund "@deepseek-ai/dsh@${DSH_VERSION}"
+"$PYTHON" scripts/prune-npm-runtime.py "$DSH_DIR"
 tar -czf "$DSH_ARCHIVE" -C "$DSH_DIR" .
+test "$(wc -c < "$DSH_ARCHIVE")" -le "$DSH_ARCHIVE_MAX_BYTES"
 
 rm -rf "$MODLENS_DIR" "$MODLENS_ARCHIVE"
 mkdir -p "$MODLENS_DIR"
 npm_config_registry="$NPM_REGISTRY" npm install --prefix "$MODLENS_DIR" --prefer-offline --no-audit --no-fund "@liustack/modlens@${MODLENS_VERSION}"
+"$PYTHON" scripts/prune-npm-runtime.py "$MODLENS_DIR"
 tar -czf "$MODLENS_ARCHIVE" -C "$MODLENS_DIR" .
 
 rm -rf "$MARKET_DIR" "$MARKET_ARCHIVE"
 mkdir -p "$MARKET_DIR"
 npm_config_registry="$NPM_REGISTRY" npm install --prefix "$MARKET_DIR" --prefer-offline --no-audit --no-fund "dshmarket@${MARKET_VERSION}"
 "$PYTHON" scripts/patch-dshmarket-mainland.py
+"$PYTHON" scripts/prune-npm-runtime.py "$MARKET_DIR"
 tar -czf "$MARKET_ARCHIVE" -C "$MARKET_DIR" .
 
 test -f "$DSH_DIR/lib/node_modules/@deepseek-ai/dsh/package.json" || test -f "$DSH_DIR/node_modules/@deepseek-ai/dsh/package.json"

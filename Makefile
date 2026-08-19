@@ -9,6 +9,7 @@ ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
 VENDOR_ARCHIVE := vendor/dsh-prefix.tar.gz
+VENDOR_ARCHIVE_MAX_BYTES := 45000000
 MODLENS_DIR := vendor/modlens
 MODLENS_ARCHIVE := vendor/modlens.tar.gz
 MARKET_DIR := vendor/dshmarket
@@ -51,11 +52,15 @@ vendor:
 	mkdir -p vendor
 	rm -rf $(VENDOR_DIR) $(MODLENS_DIR) $(MARKET_DIR) $(VENDOR_ARCHIVE) $(MODLENS_ARCHIVE) $(MARKET_ARCHIVE)
 	npm_config_registry=https://registry.npmmirror.com npm install --prefix=$(CURDIR)/$(VENDOR_DIR) --global --prefer-offline --no-audit --no-fund @deepseek-ai/dsh@$(DSH_VERSION)
+	$(PYTHON) scripts/prune-npm-runtime.py $(VENDOR_DIR)
 	tar -czf $(VENDOR_ARCHIVE) -C $(VENDOR_DIR) .
+	test $$(wc -c < $(VENDOR_ARCHIVE)) -le $(VENDOR_ARCHIVE_MAX_BYTES)
 	npm install --prefix=$(CURDIR)/$(MODLENS_DIR) --prefer-offline --no-audit --no-fund @liustack/modlens@$(MODLENS_VERSION)
+	$(PYTHON) scripts/prune-npm-runtime.py $(MODLENS_DIR)
 	tar -czf $(MODLENS_ARCHIVE) -C $(MODLENS_DIR) .
 	npm install --prefix=$(CURDIR)/$(MARKET_DIR) --prefer-offline --no-audit --no-fund dshmarket@$(MARKET_VERSION)
 	$(PYTHON) scripts/patch-dshmarket-mainland.py
+	$(PYTHON) scripts/prune-npm-runtime.py $(MARKET_DIR)
 	tar -czf $(MARKET_ARCHIVE) -C $(MARKET_DIR) .
 	$(MAKE) vendor-anchored
 

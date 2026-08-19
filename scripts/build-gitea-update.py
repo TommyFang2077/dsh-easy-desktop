@@ -123,6 +123,8 @@ def build_manifest(
     package_base_url: str,
     notes: str,
     pub_date: str | None,
+    fallback_base_url: str | None = None,
+    mirror_max_bytes: int | None = None,
 ) -> dict[str, object]:
     platforms: dict[str, dict[str, str]] = {}
     for (os_name, arch, suffix), artifact in staged.items():
@@ -131,8 +133,14 @@ def build_manifest(
         signature = staged.get((os_name, arch, suffix + ".sig"))
         if signature is None:
             raise ValueError(f"missing signature for {artifact.name}")
+        if mirror_max_bytes is not None and artifact.stat().st_size > mirror_max_bytes:
+            if not fallback_base_url:
+                raise ValueError(f"oversized updater artifact has no fallback URL: {artifact.name}")
+            url = f"{fallback_base_url.rstrip('/')}/{artifact.name}"
+        else:
+            url = f"{package_base_url.rstrip('/')}/{version}/{artifact.name}"
         entry = {
-            "url": f"{package_base_url.rstrip('/')}/{version}/{artifact.name}",
+            "url": url,
             "signature": signature.read_text(encoding="utf-8").strip(),
         }
         platforms[f"{os_name}-{arch}-{INSTALLER_KIND[os_name]}"] = entry
@@ -160,6 +168,8 @@ def main() -> None:
     parser.add_argument("--package-base-url", required=True)
     parser.add_argument("--notes", default="DeepSeek Harness Desktop update")
     parser.add_argument("--pub-date")
+    parser.add_argument("--fallback-base-url")
+    parser.add_argument("--mirror-max-bytes", type=int)
     args = parser.parse_args()
 
     if (args.artifacts is None) == (args.flat_artifacts is None):
@@ -174,6 +184,8 @@ def main() -> None:
         args.package_base_url,
         args.notes,
         args.pub_date,
+        args.fallback_base_url,
+        args.mirror_max_bytes,
     )
     (args.output / "latest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",

@@ -64,7 +64,7 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 ## 三十秒上手
 
-从 [GitHub Releases](https://github.com/TommyFang2077/dsh-easy-desktop/releases/latest) 下载对应平台的安装包；中国大陆网络可改用 [Gitea 发行版镜像](https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest)。壳会在启动时从该镜像检查自身更新，下载完成后先校验 Tauri 签名再安装。
+从 [GitHub Releases](https://github.com/TommyFang2077/dsh-easy-desktop/releases/latest) 下载对应平台的安装包；中国大陆网络可改用 [Gitea 发行版镜像](https://git.fangsiyuan.top/TomHanck4/dsh-easy-desktop/releases/latest)。壳会在启动时从该镜像检查自身更新，下载完成后先校验 Tauri 签名再安装；超过镜像网关限制的 Linux AppImage 仍使用 GitHub 下载地址。
 
 | 平台 | 产物 | 运行时要求 |
 | --- | --- | --- |

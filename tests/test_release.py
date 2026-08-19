@@ -27,7 +27,10 @@ class GiteaUpdateManifestTests(unittest.TestCase):
                 bundle = artifacts / matrix / "target" / "release" / "bundle"
                 bundle.mkdir(parents=True)
                 artifact = bundle / f"DeepSeek Harness{suffix}"
-                artifact.write_bytes(matrix.encode())
+                payload = matrix.encode()
+                if matrix == "gitea-linux":
+                    payload += b"x" * 100
+                artifact.write_bytes(payload)
                 artifact.with_name(artifact.name + ".sig").write_text(
                     f"signature-{matrix}\n", encoding="utf-8"
                 )
@@ -44,6 +47,10 @@ class GiteaUpdateManifestTests(unittest.TestCase):
                     "1.2.3",
                     "--package-base-url",
                     "http://gitea.example/api/packages/u/generic/app",
+                    "--fallback-base-url",
+                    "https://github.example/releases/download/v1.2.3",
+                    "--mirror-max-bytes",
+                    "100",
                     "--pub-date",
                     "2026-08-16T00:00:00Z",
                 ],
@@ -68,6 +75,11 @@ class GiteaUpdateManifestTests(unittest.TestCase):
             windows = manifest["platforms"]["windows-x86_64"]
             self.assertEqual(windows["signature"], "signature-gitea-windows")
             self.assertTrue(windows["url"].endswith("/1.2.3/dsh-easy-desktop_1.2.3_windows_x86_64.exe"))
+            linux = manifest["platforms"]["linux-x86_64"]
+            self.assertEqual(
+                linux["url"],
+                "https://github.example/releases/download/v1.2.3/dsh-easy-desktop_1.2.3_linux_x86_64.AppImage",
+            )
 
 
     def test_normalizes_flat_github_assets(self):

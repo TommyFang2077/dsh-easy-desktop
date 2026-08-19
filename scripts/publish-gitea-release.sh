@@ -13,6 +13,18 @@ STAGING_DIR="${1:?usage: publish-gitea-release.sh STAGING_DIR}"
 API="${GITEA_BASE_URL%/}/api/v1/repos/${GITEA_OWNER}/${GITEA_REPO}"
 PACKAGE_BASE="${GITEA_BASE_URL%/}/api/packages/${GITEA_OWNER}/generic/dsh-easy-desktop-updater"
 AUTH="Authorization: token ${GITEA_TOKEN}"
+MAX_UPLOAD_BYTES="${GITEA_MAX_UPLOAD_BYTES:-52400000}"
+
+mirror_file_allowed() {
+  local file=$1
+  local payload=$file
+  local size
+  if [[ "$file" == *.sig && -f "${file%.sig}" ]]; then
+    payload=${file%.sig}
+  fi
+  size=$(wc -c < "$payload")
+  (( size <= MAX_UPLOAD_BYTES ))
+}
 
 # Retry transient gateway errors (504) coming from the front proxy while the
 # NAS reaches github.com over a mainland link: requests can stall past the
@@ -200,6 +212,10 @@ fi
 delete_package_version "$PACKAGE_BASE/$RELEASE_VERSION" "$STAGING_DIR" 0
 for file in "$STAGING_DIR"/*; do
   [[ -f "$file" && "$(basename "$file")" != "latest.json" ]] || continue
+  if ! mirror_file_allowed "$file"; then
+    echo "skipping oversized Gitea package; latest.json uses GitHub: $(basename "$file")" >&2
+    continue
+  fi
   upload_package "$file" "$PACKAGE_BASE/$RELEASE_VERSION/$(basename "$file")"
 done
 
@@ -219,6 +235,10 @@ for file in "$STAGING_DIR"/*; do
   old_id=$(printf '%s' "$assets" | jq -r --arg name "$name" '[.[] | select(.name == $name) | .id][0] // empty')
   if [[ -n "$old_id" ]]; then
     delete_release_asset "$release_id" "$old_id" "$name"
+  fi
+  if ! mirror_file_allowed "$file"; then
+    echo "skipping oversized Gitea release asset: $name" >&2
+    continue
   fi
   upload_release_asset "$release_id" "$file" "$name"
 done
