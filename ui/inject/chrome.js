@@ -80,6 +80,41 @@
     return window.__TAURI__ || null;
   }
 
+  function bridgeMarketRestart() {
+    const t = api();
+    if (!t || !t.core || !t.event || window.__dshDesktopMarketRestart) return;
+    window.__dshDesktopMarketRestart = true;
+
+    const nativeFetch = window.fetch.bind(window);
+    t.event.listen("ready", function (event) {
+      const url = event && event.payload && event.payload.url;
+      if (typeof url === "string") window.location.replace(url);
+    }).then(function () {
+      window.fetch = function (input, init) {
+        const method = String((init && init.method) || (input && input.method) || "GET").toUpperCase();
+        const rawUrl = typeof input === "string" || input instanceof URL ? input : input && input.url;
+        let isMarketRestart = false;
+        try {
+          const requestUrl = new URL(rawUrl, location.href);
+          isMarketRestart =
+            method === "POST" &&
+            requestUrl.origin === location.origin &&
+            requestUrl.pathname === "/dsh-market/restart";
+        } catch (error) {
+          // Delegate malformed or unsupported fetch inputs unchanged.
+        }
+        if (!isMarketRestart) return nativeFetch(input, init);
+
+        return t.core.invoke("restart").then(function () {
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 202,
+            headers: { "content-type": "application/json" },
+          });
+        });
+      };
+    });
+  }
+
   function inject() {
     if (document.getElementById("dsh-desktop-titlebar")) return;
     const style = document.createElement("style");
@@ -101,6 +136,7 @@
         '<button class="tl close" data-win="close" aria-label="关闭"></button>' +
       "</div>";
     document.documentElement.appendChild(bar);
+    bridgeMarketRestart();
     if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname)) {
       document.documentElement.classList.add("dsh-desktop-offset");
     }

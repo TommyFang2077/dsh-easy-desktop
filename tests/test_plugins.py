@@ -71,6 +71,15 @@ class ClipboardIngestTests(unittest.TestCase):
         self.assertNotIn("steal", chrome)
         self.assertNotIn("|| !String(text).trim()", chrome)
 
+    def test_inject_restarts_tauri_owned_dsh_process(self):
+        chrome = (ROOT / "ui" / "inject" / "chrome.js").read_text(encoding="utf-8")
+        self.assertIn('requestUrl.origin === location.origin', chrome)
+        self.assertIn('requestUrl.pathname === "/dsh-market/restart"', chrome)
+        self.assertIn('t.core.invoke("restart")', chrome)
+        self.assertIn('t.event.listen("ready"', chrome)
+        self.assertLess(chrome.index('t.event.listen("ready"'), chrome.index("window.fetch = function"))
+        self.assertIn("window.location.replace(url)", chrome)
+
 
 class BundledAttributionTests(unittest.TestCase):
     def test_readme_cites_upstream_plugins(self):
