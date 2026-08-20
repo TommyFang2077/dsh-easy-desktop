@@ -61,20 +61,6 @@ def main() -> None:
         '\t\t\tgithubInstallWarn: "This plugin has no npm package. Installation must download its source from github.com and will fail where GitHub is unreachable. Continue only if this network can access GitHub.",\n',
     )
 
-    # Fix: Accept Tauri local protocols (tauri:// and asset://) for restart requests
-    # The file is in lib/restart.js, not client/restart.js
-    restart = MARKET / "lib" / "restart.js"
-    if restart.exists():
-        insert_after(
-            restart,
-            "// Any forwarding trace means the loopback peer is a proxy, not the user.",
-            '''        // Accept http/https same-origin loopback requests (normal browsers)
-        // AND Tauri's local schemes (tauri://localhost) — the desktop shell
-        // embeds this very server, so its own requests are always trusted.
-        const isBrowserSameOrigin = (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host === host;
-        const isTauriHost = parsed.protocol === 'tauri:' || parsed.protocol === 'asset:';
-        return isBrowserSameOrigin || isTauriHost;''',
-        )
 
 
 if __name__ == "__main__":
