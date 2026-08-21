@@ -154,43 +154,53 @@ impl DshLauncher {
             }
         }
 
-        if self.in_flatpak {
-            if let Some(bundled) = which::which("dsh").ok() {
-                candidates.push(vec![bundled.to_string_lossy().into_owned()]);
-            }
-            for path in crate::updater::BUNDLED_DSH {
-                let path = PathBuf::from(path);
-                if is_executable(&path)
-                    && candidates
-                        .first()
-                        .and_then(|c| c.first())
-                        .map(|s| s.as_str())
-                        != Some(path.to_string_lossy().as_ref())
-                {
-                    candidates.push(vec![path.to_string_lossy().into_owned()]);
+        #[cfg(windows)]
+        {
+            // A native Windows install must never fall through to PATH/npx:
+            // those commands may launch the user's standalone dsh and open a
+            // browser outside this shell. Explicit ENV_BIN_OVERRIDE/--dsh
+            // candidates were already accepted above.
+            return Ok(candidates);
+        }
+        #[cfg(not(windows))]
+        {
+            if self.in_flatpak {
+                if let Some(bundled) = which::which("dsh").ok() {
+                    candidates.push(vec![bundled.to_string_lossy().into_owned()]);
+                }
+                for path in crate::updater::BUNDLED_DSH {
+                    let path = PathBuf::from(path);
+                    if is_executable(&path)
+                        && candidates
+                            .first()
+                            .and_then(|c| c.first())
+                            .map(|s| s.as_str())
+                            != Some(path.to_string_lossy().as_ref())
+                    {
+                        candidates.push(vec![path.to_string_lossy().into_owned()]);
+                    }
+                }
+            } else {
+                let local_bin = dsh_bin_name(&home_dir().join(".local/bin"));
+                if is_executable(&local_bin) {
+                    candidates.push(vec![local_bin.to_string_lossy().into_owned()]);
+                }
+                if let Some(cached) = find_npx_dsh_bins().into_iter().next() {
+                    candidates.push(vec![cached.to_string_lossy().into_owned()]);
+                }
+                if let Ok(host) = which::which("dsh") {
+                    candidates.push(vec![host.to_string_lossy().into_owned()]);
+                }
+                if which::which("npx").is_ok() {
+                    candidates.push(vec![
+                        "npx".into(),
+                        "--yes".into(),
+                        "@deepseek-ai/dsh".into(),
+                    ]);
                 }
             }
-        } else {
-            let local_bin = dsh_bin_name(&home_dir().join(".local/bin"));
-            if is_executable(&local_bin) {
-                candidates.push(vec![local_bin.to_string_lossy().into_owned()]);
-            }
-            if let Some(cached) = find_npx_dsh_bins().into_iter().next() {
-                candidates.push(vec![cached.to_string_lossy().into_owned()]);
-            }
-            if let Ok(host) = which::which("dsh") {
-                candidates.push(vec![host.to_string_lossy().into_owned()]);
-            }
-            if which::which("npx").is_ok() {
-                candidates.push(vec![
-                    "npx".into(),
-                    "--yes".into(),
-                    "@deepseek-ai/dsh".into(),
-                ]);
-            }
+            Ok(candidates)
         }
-
-        Ok(candidates)
     }
 
     pub fn resolve(&self) -> Result<Vec<String>, DshNotFound> {
@@ -201,16 +211,24 @@ impl DshLauncher {
                     "此 Flatpak 没有内置 dsh 可执行文件。\n请重新构建/安装 io.github.tommyfang.DshDesktop。",
                 )
             } else {
-                DshNotFound::new(
-                    "找不到 DeepSeek Harness (dsh)。\n请安装 Node.js/npm（首次启动会自动安装 dsh），或用 DSH_DESKTOP_DSH_BIN 指定 dsh 的完整路径。",
-                )
+                #[cfg(windows)]
+                {
+                    DshNotFound::new(
+                        "Windows 安装包没有找到随壳提供的 dsh runtime。请重新安装最新安装包；不会启动系统中的独立 dsh。",
+                    )
+                }
+                #[cfg(not(windows))]
+                {
+                    DshNotFound::new(
+                        "找不到 DeepSeek Harness (dsh)。\n请安装 Node.js/npm（首次启动会自动安装 dsh），或用 DSH_DESKTOP_DSH_BIN 指定 dsh 的完整路径。",
+                    )
+                }
             }
         })?;
         Ok(chosen)
     }
 
     /// True when a real dsh binary is available without relying on the
-    /// transient `npx --yes @deepseek-ai/dsh` fallback.
     pub fn has_installed_dsh(&self) -> Result<bool, DshNotFound> {
         let candidates = self.collect_candidates()?;
         Ok(candidates
@@ -262,6 +280,7 @@ impl DshLauncher {
     }
 }
 
+#[cfg(not(windows))]
 fn dsh_bin_name(dir: &Path) -> PathBuf {
     #[cfg(windows)]
     {
