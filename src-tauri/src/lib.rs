@@ -22,6 +22,7 @@ use dsh_core::updater::{
 };
 use dsh_core::{APP_NAME, ENV_NO_UPDATE};
 use serde::Serialize;
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use url::Url;
 
@@ -533,6 +534,14 @@ pub fn run() {
                     .decorations(false)
                     .resizable(true)
                     .initialization_script(INJECT)
+                    .on_page_load(|window, payload| {
+                        if payload.event() == PageLoadEvent::Finished
+                            && matches!(payload.url().scheme(), "http" | "https")
+                            && is_internal(payload.url())
+                        {
+                            let _ = window.eval(INJECT);
+                        }
+                    })
                     .on_navigation(|url| {
                         if is_internal(&url) {
                             true

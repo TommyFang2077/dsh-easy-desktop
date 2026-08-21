@@ -87,6 +87,12 @@ class ClipboardIngestTests(unittest.TestCase):
         self.assertIn("getCurrentWindow().startDragging()", chrome)
 
 
+    def test_tauri_reinjects_shell_after_dsh_navigation(self):
+        lib = (ROOT / "src-tauri" / "src" / "lib.rs").read_text(encoding="utf-8")
+        self.assertIn(".on_page_load(|window, payload|", lib)
+        self.assertIn('matches!(payload.url().scheme(), "http" | "https")', lib)
+        self.assertIn("window.eval(INJECT)", lib)
+
 class BundledAttributionTests(unittest.TestCase):
     def test_readme_cites_upstream_plugins(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
