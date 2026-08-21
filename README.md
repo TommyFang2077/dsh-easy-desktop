@@ -75,6 +75,8 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 所有原生安装包都自带匹配平台的官方 Node.js 24、npm 和 `dsh` 内核，首次启动无需下载 Node.js 或 npm。壳会在启动时把更新资源部署到可写数据目录；检测到 npm 时每天检查并把新版官方内核安装到该目录。也可以设置 `DSH_DESKTOP_DSH_BIN` 指定其他 `dsh` 可执行文件。
 
+Windows 启动失败时，启动页会显示最后的服务输出；同时壳会在系统数据目录下保留 `dsh-desktop/logs/dsh-desktop.log` 和 `dsh-desktop/diagnostics/startup.jsonl`。后者只记录 Node.js、dsh 与捆绑件的部署、启动和退出阶段；若上次进程未正常退出，下次启动会记录 `previous-run-interrupted`。提交 issue 前请先检查日志内容。
+
 ## 功能一览
 
 | 能力 | 说明 |

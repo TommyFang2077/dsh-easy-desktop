@@ -25,3 +25,18 @@ jobs:
 
       - name: Test
         run: make test
+
+  windows-core:
+    name: Windows core
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Test Windows deployment and plugin paths
+        run: cargo test -p dsh-core

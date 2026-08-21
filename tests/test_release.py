@@ -159,6 +159,20 @@ class GiteaPublishWorkflowTests(unittest.TestCase):
         self.assertIn("seq 1 90", publisher)
         self.assertIn("expected at least 15 release assets", publisher)
 
+class WindowsPackageVerificationTests(unittest.TestCase):
+    def test_rejects_missing_or_malformed_windows_artifacts(self):
+        verifier = ROOT / "scripts" / "verify-windows-package.py"
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory)
+            result = subprocess.run(
+                ["python3", str(verifier), str(bundle)], capture_output=True, text=True
+            )
+            self.assertNotEqual(result.returncode, 0)
+
+            (bundle / "setup.exe").write_bytes(b"MZinstaller")
+            (bundle / "setup.msi").write_bytes(bytes.fromhex("D0CF11E0A1B11AE1"))
+            subprocess.run(["python3", str(verifier), str(bundle)], check=True)
+
 class VendoringConfigurationTests(unittest.TestCase):
     def test_native_vendor_script_has_all_pinned_component_versions(self):
         makefile = (ROOT / "Makefile").read_text(encoding="utf-8")

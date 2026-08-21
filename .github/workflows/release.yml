@@ -166,6 +166,10 @@ jobs:
           uploadUpdaterSignatures: true
           args: ${{ matrix.args }}
 
+      - name: Verify Windows installer artifacts
+        if: matrix.name == 'windows'
+        run: python scripts/verify-windows-package.py target/release/bundle
+
       - name: Normalize Tauri artifact names for fallback URL compatibility
         shell: bash
         run: |

@@ -144,6 +144,29 @@ pub fn bundled_dsh_prefix(paths: &BundledPaths) -> Option<PathBuf> {
         .or_else(|| paths.find_dir("vendor/dsh-prefix", MARKER))
 }
 
+fn replace_staged_dir(staging: &Path, dest: &Path) -> Result<(), String> {
+    let previous = dest.with_extension("previous");
+    if !dest.exists() && previous.exists() {
+        std::fs::rename(&previous, dest).map_err(|error| error.to_string())?;
+    }
+    if previous.exists() {
+        std::fs::remove_dir_all(&previous).map_err(|error| error.to_string())?;
+    }
+    if dest.exists() {
+        std::fs::rename(dest, &previous).map_err(|error| error.to_string())?;
+    }
+    if let Err(error) = std::fs::rename(staging, dest) {
+        if previous.exists() {
+            let _ = std::fs::rename(&previous, dest);
+        }
+        return Err(error.to_string());
+    }
+    if previous.exists() {
+        let _ = std::fs::remove_dir_all(previous);
+    }
+    Ok(())
+}
+
 fn activate_staged_prefix(staging: &Path, dest: &Path) -> Result<String, String> {
     let Some(version) =
         read_version(staging).filter(|_| crate::launcher::is_executable(&dsh_bin(staging)))
@@ -151,10 +174,7 @@ fn activate_staged_prefix(staging: &Path, dest: &Path) -> Result<String, String>
         let _ = std::fs::remove_dir_all(staging);
         return Err("内置 dsh 资源不完整".to_string());
     };
-    if dest.exists() {
-        std::fs::remove_dir_all(dest).map_err(|error| error.to_string())?;
-    }
-    std::fs::rename(staging, dest).map_err(|error| error.to_string())?;
+    replace_staged_dir(staging, dest)?;
     Ok(version)
 }
 
@@ -179,10 +199,7 @@ fn activate_staged_node_runtime(staging: &Path, dest: &Path) -> Result<String, S
         let _ = std::fs::remove_dir_all(staging);
         return Err("内置 Node.js/npm 资源不完整".to_string());
     };
-    if dest.exists() {
-        std::fs::remove_dir_all(dest).map_err(|error| error.to_string())?;
-    }
-    std::fs::rename(staging, dest).map_err(|error| error.to_string())?;
+    replace_staged_dir(staging, dest)?;
     Ok(version)
 }
 
@@ -617,6 +634,26 @@ mod tests {
             selected_npm_registry(None, Some(OsStr::new("https://packages.example.com/npm")),),
             OsStr::new("https://packages.example.com/npm")
         );
+    }
+
+    #[test]
+    fn stale_previous_runtime_is_recovered_before_replacement() {
+        let tmp = TempDir::new().unwrap();
+        let dest = tmp.path().join("runtime");
+        let previous = dest.with_extension("previous");
+        let staging = dest.with_extension("staging");
+        std::fs::create_dir_all(&previous).unwrap();
+        std::fs::write(previous.join("version"), "old").unwrap();
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::write(staging.join("version"), "new").unwrap();
+
+        replace_staged_dir(&staging, &dest).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dest.join("version")).unwrap(),
+            "new"
+        );
+        assert!(!previous.exists());
     }
 
     #[test]

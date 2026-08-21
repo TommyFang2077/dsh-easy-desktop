@@ -1,12 +1,13 @@
 mod shell_updater;
 
-use std::io::Cursor;
-use std::path::PathBuf;
+use std::fs::{self, OpenOptions};
+use std::io::{Cursor, Write};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use dsh_core::clipboard::{
     detect_image_mime, file_from_bytes, filename_for_mime, files_from_paths, parse_uri_list,
@@ -95,12 +96,97 @@ fn print_help() {
     );
 }
 
+#[derive(Clone)]
+struct StartupEvidence {
+    event_path: PathBuf,
+    active_run_path: PathBuf,
+}
+
+impl StartupEvidence {
+    fn begin() -> Self {
+        let dir = dsh_core::paths::data_home().join("dsh-desktop/diagnostics");
+        let _ = fs::create_dir_all(&dir);
+        let evidence = Self {
+            event_path: dir.join("startup.jsonl"),
+            active_run_path: dir.join("active-run"),
+        };
+        let interrupted = evidence.active_run_path.exists();
+        let _ = fs::write(&evidence.active_run_path, format!("{}\n", unix_timestamp()));
+        evidence.record("app-started", None);
+        if interrupted {
+            evidence.record("previous-run-interrupted", None);
+        }
+        evidence
+    }
+
+    fn record(&self, stage: &str, detail: Option<&str>) {
+        const MAX_BYTES: u64 = 256 * 1024;
+        if fs::metadata(&self.event_path)
+            .map(|meta| meta.len() > MAX_BYTES)
+            .unwrap_or(false)
+        {
+            let _ = fs::remove_file(&self.event_path);
+        }
+        let detail = detail.unwrap_or("").replace(['\r', '\n'], " ");
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.event_path)
+        {
+            let _ = writeln!(
+                file,
+                "{{\"timestamp\":{},\"stage\":{},\"detail\":{}}}",
+                unix_timestamp(),
+                serde_json::to_string(stage).unwrap_or_else(|_| "\"unknown\"".into()),
+                serde_json::to_string(&detail).unwrap_or_else(|_| "\"\"".into()),
+            );
+        }
+    }
+
+    fn mark_clean(&self) {
+        self.record("app-stopped", None);
+        let _ = fs::remove_file(&self.active_run_path);
+    }
+}
+
+fn unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+fn init_logger(verbose: bool) {
+    const MAX_BYTES: u64 = 5 * 1024 * 1024;
+    let path = dsh_core::paths::data_home().join("dsh-desktop/logs/dsh-desktop.log");
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if fs::metadata(&path)
+        .map(|meta| meta.len() > MAX_BYTES)
+        .unwrap_or(false)
+    {
+        let _ = fs::rename(&path, path.with_extension("previous.log"));
+    }
+    let mut builder =
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(if verbose {
+            "debug"
+        } else {
+            "info"
+        }));
+    if let Ok(file) = OpenOptions::new().create(true).append(true).open(path) {
+        builder.target(env_logger::Target::Pipe(Box::new(file)));
+    }
+    builder.init();
+}
+
 struct AppState {
     args: Args,
     paths: BundledPaths,
     process: Mutex<Option<Arc<DshProcess>>>,
     url: Mutex<Option<String>>,
     initial_boot_started: AtomicBool,
+    evidence: StartupEvidence,
 }
 
 impl AppState {
@@ -330,13 +416,26 @@ fn boot(app: AppHandle) {
         return;
     };
     state.stop();
+    state.evidence.record("boot-started", None);
     let started = Instant::now();
     emit_status(&app, "正在准备 DeepSeek Harness…", Some(5));
     emit_status(&app, "正在部署内置 Node.js 与 npm（1/3）…", Some(25));
+    state.evidence.record("node-deployment-started", None);
     match provision_bundled_node(&state.paths) {
-        Ok(Some(version)) => log::info!("bundled Node.js runtime ready: {version}"),
-        Ok(None) => log::info!("no bundled Node.js runtime required"),
+        Ok(Some(version)) => {
+            state
+                .evidence
+                .record("node-deployment-ready", Some(&version));
+            log::info!("bundled Node.js runtime ready: {version}")
+        }
+        Ok(None) => {
+            state.evidence.record("node-deployment-skipped", None);
+            log::info!("no bundled Node.js runtime required")
+        }
         Err(error) => {
+            state
+                .evidence
+                .record("node-deployment-failed", Some(&error));
             let _ = app.emit(
                 "error",
                 ErrorPayload {
@@ -351,11 +450,21 @@ fn boot(app: AppHandle) {
         }
     }
     emit_status(&app, "正在部署内置 DeepSeek Harness（2/3）…", Some(60));
+    state.evidence.record("dsh-deployment-started", None);
 
     match provision_bundled_dsh(&state.paths) {
-        Ok(Some(version)) => log::info!("official dsh core ready: {version}"),
-        Ok(None) => log::warn!("packaged official dsh core not found; using launcher fallbacks"),
+        Ok(Some(version)) => {
+            state
+                .evidence
+                .record("dsh-deployment-ready", Some(&version));
+            log::info!("official dsh core ready: {version}")
+        }
+        Ok(None) => {
+            state.evidence.record("dsh-deployment-skipped", None);
+            log::warn!("packaged official dsh core not found; using launcher fallbacks")
+        }
         Err(error) => {
+            state.evidence.record("dsh-deployment-failed", Some(&error));
             let _ = app.emit(
                 "error",
                 ErrorPayload {
@@ -392,6 +501,7 @@ fn boot(app: AppHandle) {
         started.elapsed()
     );
     emit_status(&app, "正在启动内置 DeepSeek Harness（3/3）…", Some(90));
+    state.evidence.record("bundled-components-ready", None);
 
     let launcher = DshLauncher::new(state.args.dsh.clone(), state.args.cwd.clone());
     let missing = match launcher.resolve() {
@@ -410,12 +520,16 @@ fn boot(app: AppHandle) {
         );
         bootstrap_message = Some(result.message);
     }
+    state.evidence.record("dsh-launch-started", None);
     let process = match launcher.start() {
         Ok(p) => Arc::new(p),
         Err(err) => {
             let detail = bootstrap_message
                 .map(|message| format!("{message}\n{err}"))
                 .unwrap_or_default();
+            state
+                .evidence
+                .record("dsh-launch-failed", Some(&err.to_string()));
             let _ = app.emit(
                 "error",
                 ErrorPayload {
@@ -430,6 +544,7 @@ fn boot(app: AppHandle) {
         *slot = Some(Arc::clone(&process));
     }
     log::info!("dsh web spawned in {:?}", started.elapsed());
+    state.evidence.record("dsh-started", None);
 
     if !state.args.no_update && !state.args.force_update && update_check_due() {
         thread::spawn(|| {
@@ -452,6 +567,7 @@ fn boot(app: AppHandle) {
             }
             let _ = app.emit("ready", ReadyPayload { url });
             log::info!("dsh web ready in {:?}", started.elapsed());
+            state.evidence.record("dsh-ready", None);
             return;
         }
         if let Some(code) = process.poll() {
@@ -463,6 +579,7 @@ fn boot(app: AppHandle) {
                     detail,
                 },
             );
+            state.evidence.record("dsh-exited", Some(&code.to_string()));
             return;
         }
         if Instant::now() >= deadline {
@@ -484,6 +601,7 @@ fn boot(app: AppHandle) {
                     detail,
                 },
             );
+            state.evidence.record("dsh-ready-timeout", None);
             return;
         }
         thread::sleep(Duration::from_millis(80));
@@ -492,10 +610,7 @@ fn boot(app: AppHandle) {
 
 pub fn run() {
     let args = Args::parse();
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or(if args.verbose { "debug" } else { "info" }),
-    )
-    .init();
+    init_logger(args.verbose);
 
     let mut paths = BundledPaths::discover();
     let dev = args.dev;
@@ -524,6 +639,7 @@ pub fn run() {
                 process: Mutex::new(None),
                 url: Mutex::new(None),
                 initial_boot_started: AtomicBool::new(false),
+                evidence: StartupEvidence::begin(),
             });
 
             let mut builder =
@@ -580,6 +696,7 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 if let Some(state) = window.try_state::<AppState>() {
                     state.stop();
+                    state.evidence.mark_clean();
                 }
             }
         })
