@@ -115,6 +115,17 @@ impl AppState {
 #[derive(Clone, Serialize)]
 struct StatusPayload {
     message: String,
+    progress: Option<u8>,
+}
+
+fn emit_status(app: &AppHandle, message: impl Into<String>, progress: Option<u8>) {
+    let _ = app.emit(
+        "status",
+        StatusPayload {
+            message: message.into(),
+            progress,
+        },
+    );
 }
 
 #[derive(Clone, Serialize)]
@@ -319,12 +330,8 @@ fn boot(app: AppHandle) {
     };
     state.stop();
     let started = Instant::now();
-    let _ = app.emit(
-        "status",
-        StatusPayload {
-            message: "正在启动…".into(),
-        },
-    );
+    emit_status(&app, "正在准备 DeepSeek Harness…", Some(5));
+    emit_status(&app, "正在部署内置 Node.js 与 npm（1/3）…", Some(25));
     match provision_bundled_node(&state.paths) {
         Ok(Some(version)) => log::info!("bundled Node.js runtime ready: {version}"),
         Ok(None) => log::info!("no bundled Node.js runtime required"),
@@ -342,6 +349,7 @@ fn boot(app: AppHandle) {
             );
         }
     }
+    emit_status(&app, "正在部署内置 DeepSeek Harness（2/3）…", Some(60));
 
     match provision_bundled_dsh(&state.paths) {
         Ok(Some(version)) => log::info!("official dsh core ready: {version}"),
@@ -362,12 +370,7 @@ fn boot(app: AppHandle) {
     }
 
     if state.args.force_update && !state.args.no_update {
-        let _ = app.emit(
-            "status",
-            StatusPayload {
-                message: "正在检查 dsh 更新…".into(),
-            },
-        );
+        emit_status(&app, "正在检查 dsh 更新…", Some(75));
         let result = update_dsh(true);
         mark_update_checked();
         log::info!("dsh update: {} ({})", result.status, result.message);
@@ -387,12 +390,7 @@ fn boot(app: AppHandle) {
         preset.message,
         started.elapsed()
     );
-    let _ = app.emit(
-        "status",
-        StatusPayload {
-            message: "正在启动 dsh web 服务…".into(),
-        },
-    );
+    emit_status(&app, "正在启动内置 DeepSeek Harness（3/3）…", Some(90));
 
     let launcher = DshLauncher::new(state.args.dsh.clone(), state.args.cwd.clone());
     let missing = match launcher.resolve() {
@@ -401,12 +399,7 @@ fn boot(app: AppHandle) {
     };
     let mut bootstrap_message: Option<String> = None;
     if missing && !state.args.no_update {
-        let _ = app.emit(
-            "status",
-            StatusPayload {
-                message: "未检测到 dsh，正在下载并安装内置 dsh…".into(),
-            },
-        );
+        emit_status(&app, "未检测到 DeepSeek Harness，正在安装…", Some(80));
         let result = update_dsh(true);
         mark_update_checked();
         log::info!(

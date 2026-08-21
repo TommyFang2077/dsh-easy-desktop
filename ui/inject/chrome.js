@@ -141,6 +141,13 @@
       document.documentElement.classList.add("dsh-desktop-offset");
     }
 
+
+    const drag = bar.querySelector(".drag");
+    drag.addEventListener("mousedown", function (event) {
+      if (event.button !== 0) return;
+      const t = api();
+      if (t && t.window) t.window.getCurrentWindow().startDragging();
+    });
     const menu = bar.querySelector(".menu");
     const more = bar.querySelector(".more");
     more.addEventListener("click", function (e) {

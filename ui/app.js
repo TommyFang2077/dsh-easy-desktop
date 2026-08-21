@@ -1,5 +1,8 @@
 const statusEl = document.getElementById("status");
 const spinner = document.getElementById("spinner");
+const bootProgress = document.getElementById("boot-progress");
+const progressValue = document.getElementById("progress-value");
+const progressLabel = document.getElementById("progress-label");
 const retry = document.getElementById("retry");
 const detail = document.getElementById("detail");
 const updatePanel = document.getElementById("update-panel");
@@ -11,11 +14,17 @@ function tauri() {
   return window.__TAURI__;
 }
 
-function setStatus(message, kind) {
+function setStatus(message, kind, progress) {
   statusEl.textContent = message;
   const failed = kind === "error";
   spinner.hidden = failed;
   retry.hidden = !failed;
+  const hasProgress = Number.isInteger(progress) && progress >= 0 && progress <= 100;
+  bootProgress.hidden = !hasProgress;
+  if (hasProgress) {
+    progressValue.value = progress;
+    progressLabel.textContent = `${progress}%`;
+  }
   if (!failed) {
     detail.hidden = true;
     detail.textContent = "";
@@ -36,7 +45,8 @@ async function boot() {
     return;
   }
   await api.event.listen("status", function (event) {
-    setStatus(event.payload.message || "正在启动…", "ok");
+    const payload = event.payload || {};
+    setStatus(payload.message || "正在启动…", "ok", payload.progress);
   });
   await api.event.listen("error", function (event) {
     setStatus(event.payload.message || "启动失败", "error");

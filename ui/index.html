@@ -13,6 +13,10 @@
         <h1>DeepSeek Harness</h1>
         <p id="status">正在启动…</p>
         <div class="ring" id="spinner" aria-hidden="true"></div>
+        <div id="boot-progress" class="boot-progress" hidden>
+          <progress id="progress-value" max="100" value="0"></progress>
+          <span id="progress-label">0%</span>
+        </div>
         <section id="update-panel" class="update-panel" hidden>
           <p id="update-notes"></p>
           <div class="update-actions">

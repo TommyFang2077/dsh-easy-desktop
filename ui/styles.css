@@ -84,6 +84,24 @@ h1 {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.boot-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(260px, 100%);
+  margin: 20px auto 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boot-progress[hidden] { display: none; }
+
+#progress-value {
+  width: 100%;
+  height: 5px;
+  accent-color: var(--accent);
+}
+
 .pill {
   margin-top: 28px;
   appearance: none;

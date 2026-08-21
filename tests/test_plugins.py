@@ -80,6 +80,12 @@ class ClipboardIngestTests(unittest.TestCase):
         self.assertLess(chrome.index('t.event.listen("ready"'), chrome.index("window.fetch = function"))
         self.assertIn("window.location.replace(url)", chrome)
 
+    def test_custom_titlebar_starts_native_dragging(self):
+        chrome = (ROOT / "ui" / "inject" / "chrome.js").read_text(encoding="utf-8")
+        self.assertIn('bar.querySelector(".drag")', chrome)
+        self.assertIn('drag.addEventListener("mousedown"', chrome)
+        self.assertIn("getCurrentWindow().startDragging()", chrome)
+
 
 class BundledAttributionTests(unittest.TestCase):
     def test_readme_cites_upstream_plugins(self):

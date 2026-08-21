@@ -10,7 +10,9 @@ use regex::Regex;
 use thiserror::Error;
 
 use crate::paths::{home_dir, is_flatpak};
-use crate::updater::{configure_node_runtime, configure_npm_registry, update_dsh_bin};
+use crate::updater::{
+    bundled_dsh_command, configure_node_runtime, configure_npm_registry, update_dsh_bin,
+};
 use crate::{ENV_BIN_OVERRIDE, ENV_CWD_OVERRIDE};
 
 pub const DSH_DEFAULT_HOST: &str = "127.0.0.1";
@@ -143,9 +145,13 @@ impl DshLauncher {
             candidates.push(parts);
         }
 
-        let updated = update_dsh_bin();
-        if is_executable(&updated) {
-            candidates.push(vec![updated.to_string_lossy().into_owned()]);
+        if let Some(updated) = bundled_dsh_command() {
+            candidates.push(updated);
+        } else {
+            let updated = update_dsh_bin();
+            if is_executable(&updated) {
+                candidates.push(vec![updated.to_string_lossy().into_owned()]);
+            }
         }
 
         if self.in_flatpak {
@@ -220,6 +226,7 @@ impl DshLauncher {
             DSH_DEFAULT_HOST.into(),
             "--port".into(),
             "0".into(),
+            "--no-open".into(),
         ]);
         Ok(argv)
     }
@@ -243,7 +250,8 @@ impl DshLauncher {
         {
             use std::os::windows::process::CommandExt;
             const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
-            cmd.creation_flags(CREATE_NEW_PROCESS_GROUP);
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
         }
         let mut child = cmd
             .spawn()
@@ -501,7 +509,7 @@ mod tests {
         let argv = DshLauncher::new(None, None).web_argv().unwrap();
         std::env::remove_var(ENV_BIN_OVERRIDE);
         assert_eq!(&argv[0..4], ["dsh-test", "web", "--host", "127.0.0.1"]);
-        assert!(argv.contains(&"--port".into()));
-        assert_eq!(argv.last().map(String::as_str), Some("0"));
+        assert!(argv.windows(2).any(|pair| pair == ["--port", "0"]));
+        assert_eq!(argv.last().map(String::as_str), Some("--no-open"));
     }
 }

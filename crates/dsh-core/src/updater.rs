@@ -96,6 +96,27 @@ pub fn update_dsh_bin() -> PathBuf {
     dsh_bin(&update_prefix())
 }
 
+#[cfg(any(windows, test))]
+fn node_dsh_command(prefix: &Path, runtime: &Path) -> Option<Vec<String>> {
+    let node = node_bin(runtime);
+    let entry = package_json(prefix).parent()?.join("lib/bin.js");
+    (crate::launcher::is_executable(&node) && entry.is_file()).then(|| {
+        vec![
+            node.to_string_lossy().into_owned(),
+            entry.to_string_lossy().into_owned(),
+        ]
+    })
+}
+
+pub fn bundled_dsh_command() -> Option<Vec<String>> {
+    #[cfg(windows)]
+    {
+        return node_dsh_command(&update_prefix(), &node_runtime_prefix());
+    }
+    #[cfg(not(windows))]
+    None
+}
+
 pub fn package_json(prefix: &Path) -> PathBuf {
     #[cfg(windows)]
     {
@@ -678,6 +699,31 @@ mod tests {
         );
         assert_eq!(node_runtime_version(&dest).as_deref(), Some("24.19.0"));
         assert!(node_runtime_ready(&dest));
+    }
+    #[test]
+    fn node_runtime_starts_dsh_without_a_command_shim() {
+        let tmp = TempDir::new().unwrap();
+        let runtime = tmp.path().join("runtime");
+        let prefix = tmp.path().join("prefix");
+        let node = node_bin(&runtime);
+        let entry = package_json(&prefix).parent().unwrap().join("lib/bin.js");
+        std::fs::create_dir_all(node.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
+        std::fs::write(&node, "node").unwrap();
+        std::fs::write(&entry, "entry").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&node, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        assert_eq!(
+            node_dsh_command(&prefix, &runtime),
+            Some(vec![
+                node.to_string_lossy().into_owned(),
+                entry.to_string_lossy().into_owned()
+            ])
+        );
     }
 
     #[test]
