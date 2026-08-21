@@ -68,12 +68,12 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 | 平台 | 产物 | 运行时要求 |
 | --- | --- | --- |
-| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载）+ Node.js |
-| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 + Node.js |
-| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 + Node.js |
+| Windows | NSIS `.exe` / `.msi` | [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)（安装器可引导下载） |
+| macOS | Apple Silicon / Intel `.dmg` | 未公证，首次打开需在「隐私与安全性」允许 |
+| Linux | `.deb` / `.rpm` | WebKitGTK 4.1 |
 | Linux Flatpak | `.flatpak` | **零依赖**：自带 Node.js 24 与官方 `dsh` |
 
-所有安装包都自带官方 `dsh` 内核，首次启动无需下载。非 Flatpak 需要本机 Node.js 运行内核；检测到 npm 时，壳会每天检查并把新版官方内核安装到可写更新目录。也可以设置 `DSH_DESKTOP_DSH_BIN` 指定其他 `dsh` 可执行文件。
+所有原生安装包都自带匹配平台的官方 Node.js 24、npm 和 `dsh` 内核，首次启动无需下载 Node.js 或 npm。壳会在启动时把更新资源部署到可写数据目录；检测到 npm 时每天检查并把新版官方内核安装到该目录。也可以设置 `DSH_DESKTOP_DSH_BIN` 指定其他 `dsh` 可执行文件。
 
 ## 功能一览
 
@@ -91,6 +91,7 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 | 组件 | 当前基线 | 用途 | 本地位置 |
 | --- | --- | --- | --- |
 | DeepSeek Harness | `0.1.0-rc.7` | 所有安装包内置官方 WebUI；检测到 npm 时在线更新 | `~/.local/share/dsh-desktop/dsh-prefix`（平台对应数据目录） |
+| Node.js runtime | `24.19.0` | 原生安装包内置 Node.js/npm，供官方 dsh 启动和更新使用 | `~/.local/share/dsh-desktop/node-runtime`（平台对应数据目录） |
 | 离线语音 | `dsh-desktop-voice 0.4.0` | 麦克风、快捷键、SenseVoice / OpenAI 兼容听写 | 配置 `~/.config/dsh-desktop/voice.json`；模型在系统缓存目录 |
 | 插件市场 | `dshmarket 1.11.3` | 社区插件的发现、安装和更新 | `~/.dsh/profiles/web` |
 | 视觉桥 | `ModLens 3.16.6` | 让纯文本模型读取粘贴的图片；可从市场更新；引擎配置在「设置 → 插件」 | `~/.dsh/profiles/web`；配置 `~/.modlens/config.json` |
@@ -98,7 +99,7 @@ dsh 原本运行在浏览器标签页中；本项目用 Tauri 2 和系统 WebVie
 
 应用启动时会同步桌面自带组件，但会保留用户从市场更新到更新版本的 ModLens 和市场。捆绑版本固定在 [Makefile](Makefile) 中。
 
-`dsh` 的查找顺序：`DSH_DESKTOP_DSH_BIN` → `--dsh` → 桌面更新目录（首次从安装包复制） → Flatpak 内置路径 → 宿主机常见路径 → `PATH` → `npx`。壳启动的 dsh、市场和语音运行时默认通过 `https://registry.npmmirror.com` 获取 npm 包；已有 `npm_config_registry` / `NPM_CONFIG_REGISTRY` 会保留，也可用 `DSH_DESKTOP_NPM_REGISTRY` 显式覆盖。设置 `DSH_DESKTOP_NO_UPDATE=1` 或传入 `--no-update` 可关闭 dsh 在线更新，但不会禁用安装包内的内核。
+`dsh` 的查找顺序：`DSH_DESKTOP_DSH_BIN` → `--dsh` → 桌面更新目录（首次从安装包复制） → Flatpak 内置路径 → 宿主机常见路径 → `PATH` → `npx`。原生安装包启动的 dsh、市场和语音运行时优先使用内置 Node.js/npm；npm 包默认通过 `https://registry.npmmirror.com` 获取，已有 `npm_config_registry` / `NPM_CONFIG_REGISTRY` 会保留，也可用 `DSH_DESKTOP_NPM_REGISTRY` 显式覆盖。设置 `DSH_DESKTOP_NO_UPDATE=1` 或传入 `--no-update` 可关闭 dsh 在线更新，但不会禁用安装包内的内核。
 
 ## 安全与边界
 
@@ -138,7 +139,7 @@ cargo tauri build --bundles nsis,msi     # Windows
 cargo tauri build --bundles app,dmg      # macOS
 ```
 
-发布：打 `v*` 标签（如 `git tag v0.1.0 && git push origin v0.1.0`），[Release 工作流](.github/workflows/release.yml)自动测试、打包 Windows / macOS / deb / rpm / Flatpak 并挂到 GitHub Releases。
+发布：推送 `v*` 标签（如 `git tag v0.1.5 && git push origin v0.1.5`）。[Release 工作流](.github/workflows/release.yml)自动测试、打包 Windows / macOS / deb / rpm / Flatpak，发布 GitHub Release，并发布相同安装包和更新 feed 到 Gitea。Gitea pull mirror 收到标签后也会自动等待 GitHub 安装包完成、创建对应的 Gitea Release；必要时可在 Gitea Actions 手动运行，或在具备 `GITEA_TOKEN` 的环境执行 `make gitea-publish RELEASE_TAG=v0.1.5`。
 
 ## Flatpak
 

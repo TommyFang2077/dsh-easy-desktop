@@ -7,8 +7,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 DSH_VERSION="${DSH_VERSION:-0.1.0-rc.7}"
+NODE_VERSION="${NODE_VERSION:-24.19.0}"
 MODLENS_VERSION="${MODLENS_VERSION:-3.16.6}"
-MARKET_VERSION="${MARKET_VERSION:-1.11.3}"
 ANCHORED_COMMIT="${ANCHORED_COMMIT:-ffb845c5480adc953392a6db6f8a98ede621174b}"
 ANCHORED_REPO="${ANCHORED_REPO:-https://github.com/xiaobright/dsh-anchored-standard.git}"
 DSH_NPM_REGISTRY="${DSH_DESKTOP_NPM_REGISTRY:-https://registry.npmmirror.com}"
@@ -55,6 +55,7 @@ npm_config_registry="$DSH_NPM_REGISTRY" npm install --prefix "$DSH_DIR" --global
 "$PYTHON" scripts/prune-npm-runtime.py "$DSH_DIR"
 tar -czf "$DSH_ARCHIVE" -C "$DSH_DIR" .
 test "$(wc -c < "$DSH_ARCHIVE")" -le "$DSH_ARCHIVE_MAX_BYTES"
+NODE_VERSION="$NODE_VERSION" bash scripts/vendor-node-runtime.sh
 
 rm -rf "$MODLENS_DIR" "$MODLENS_ARCHIVE"
 mkdir -p "$MODLENS_DIR"
@@ -71,10 +72,12 @@ tar -czf "$MARKET_ARCHIVE" -C "$MARKET_DIR" .
 
 test -f "$DSH_DIR/lib/node_modules/@deepseek-ai/dsh/package.json" || test -f "$DSH_DIR/node_modules/@deepseek-ai/dsh/package.json"
 test -f "$DSH_ARCHIVE"
+test -f vendor/node-runtime.tar.gz
+test -f vendor/node-runtime.version
 test -f "$MODLENS_ARCHIVE"
 test -f "$MARKET_ARCHIVE"
 test -f "$ANCHORED_DIR/preset.yml"
 test -f "$ZERO_DIR/preset.yml"
 test -d "$MODLENS_DIR/node_modules/@liustack/modlens"
 test -d "$MARKET_DIR/node_modules/dshmarket"
-echo "vendored dsh ${DSH_VERSION}, ModLens ${MODLENS_VERSION}, dshmarket ${MARKET_VERSION}, and Anchored Standard ${ANCHORED_COMMIT}"
+echo "vendored dsh ${DSH_VERSION}, Node.js ${NODE_VERSION}, ModLens ${MODLENS_VERSION}, dshmarket ${MARKET_VERSION}, and Anchored Standard ${ANCHORED_COMMIT}"

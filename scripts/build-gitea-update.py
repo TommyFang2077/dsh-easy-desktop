@@ -136,7 +136,12 @@ def build_manifest(
         if mirror_max_bytes is not None and artifact.stat().st_size > mirror_max_bytes:
             if not fallback_base_url:
                 raise ValueError(f"oversized updater artifact has no fallback URL: {artifact.name}")
-            url = f"{fallback_base_url.rstrip('/')}/{artifact.name}"
+            fallback_name = (
+                f"DeepSeek.Harness_{artifact.name.removeprefix('dsh-easy-desktop_')}"
+                if artifact.name.startswith("dsh-easy-desktop_")
+                else artifact.name
+            )
+            url = f"{fallback_base_url.rstrip('/')}/{fallback_name}"
         else:
             url = f"{package_base_url.rstrip('/')}/{version}/{artifact.name}"
         entry = {

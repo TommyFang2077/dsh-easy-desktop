@@ -11,14 +11,14 @@ export GITEA_OWNER="$REPO_OWNER"
 export GITEA_REPO="$REPO_NAME"
 GITEA_BASE_URL="${GITEA_BASE_URL:-http://192.168.30.33:3000}"
 PACKAGE_BASE_URL="${PACKAGE_BASE_URL:-https://git.fangsiyuan.top/api/packages/TomHanck4/generic/dsh-easy-desktop-updater}"
-RELEASE_TAG="${RELEASE_TAG:-latest}"
+RELEASE_TAG="${RELEASE_TAG:-${GITHUB_REF#refs/tags/}}"
 : "${GITEA_TOKEN:?GITEA_TOKEN is required}"
 
-if [[ "$RELEASE_TAG" == "latest" ]]; then
+if [[ -z "$RELEASE_TAG" || "$RELEASE_TAG" == "latest" ]]; then
   RELEASE_TAG=$(curl -fsS "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=1" | jq -r '.[0].tag_name')
 fi
 [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "null" ]] || {
-  echo "no GitHub release found" >&2
+  echo "no GitHub release tag available" >&2
   exit 1
 }
 VERSION="${RELEASE_TAG#v}"
@@ -36,8 +36,20 @@ fi
 rm -rf artifacts staged
 mkdir -p artifacts
 
-curl -fsS "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG" -o /tmp/release.json
-jq -r '.assets[].browser_download_url' /tmp/release.json > /tmp/asset-urls.txt
+for attempt in $(seq 1 90); do
+  if curl -fsS "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG" -o /tmp/release.json; then
+    jq -r '.assets[].browser_download_url' /tmp/release.json > /tmp/asset-urls.txt
+    if [ "$(wc -l < /tmp/asset-urls.txt)" -ge 15 ]; then
+      break
+    fi
+  fi
+  echo "waiting for GitHub release assets for $RELEASE_TAG (attempt ${attempt}/90)" >&2
+  sleep 20
+done
+[ "$(wc -l < /tmp/asset-urls.txt 2>/dev/null || echo 0)" -ge 15 ] || {
+  echo "GitHub release $RELEASE_TAG did not publish all installer assets within 30 minutes" >&2
+  exit 1
+}
 while read -r url; do
   curl -fsSL --retry 3 --retry-delay 5 -o "artifacts/$(basename "$url")" "$url" &
 done < /tmp/asset-urls.txt

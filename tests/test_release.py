@@ -78,7 +78,7 @@ class GiteaUpdateManifestTests(unittest.TestCase):
             linux = manifest["platforms"]["linux-x86_64"]
             self.assertEqual(
                 linux["url"],
-                "https://github.example/releases/download/v1.2.3/dsh-easy-desktop_1.2.3_linux_x86_64.AppImage",
+                "https://github.example/releases/download/v1.2.3/DeepSeek.Harness_1.2.3_linux_x86_64.AppImage",
             )
 
 
@@ -144,6 +144,20 @@ class GiteaUpdateManifestTests(unittest.TestCase):
                 )
                 self.assertNotIn("linux-x86_64-app", manifest["platforms"])
 
+
+class GiteaPublishWorkflowTests(unittest.TestCase):
+    def test_tag_push_waits_for_complete_github_installers(self):
+        workflow = (ROOT / ".gitea" / "workflows" / "publish.yml").read_text(
+            encoding="utf-8"
+        )
+        publisher = (ROOT / "scripts" / "publish-gitea-actions.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('tags: ["v*"]', workflow)
+        self.assertIn('GITHUB_REF#refs/tags/', workflow)
+        self.assertIn('GITHUB_REF#refs/tags/', publisher)
+        self.assertIn("seq 1 90", publisher)
+        self.assertIn("expected at least 15 release assets", publisher)
 
 class ReleaseVersionTests(unittest.TestCase):
     def test_cargo_and_tauri_versions_match(self):

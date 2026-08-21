@@ -39,6 +39,50 @@ pub fn update_prefix() -> PathBuf {
     data_home().join("dsh-desktop/dsh-prefix")
 }
 
+const NODE_RUNTIME_MARKER: &str = ".dsh-desktop-node-version";
+
+pub fn node_runtime_prefix() -> PathBuf {
+    data_home().join("dsh-desktop/node-runtime")
+}
+
+fn node_bin(prefix: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        return prefix.join("node.exe");
+    }
+    #[cfg(not(windows))]
+    prefix.join("bin/node")
+}
+
+fn npm_bin(prefix: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        return prefix.join("npm.cmd");
+    }
+    #[cfg(not(windows))]
+    prefix.join("bin/npm")
+}
+
+fn node_runtime_version(prefix: &Path) -> Option<String> {
+    std::fs::read_to_string(prefix.join(NODE_RUNTIME_MARKER))
+        .ok()
+        .map(|version| version.trim().to_owned())
+        .filter(|version| !version.is_empty())
+}
+
+fn node_runtime_ready(prefix: &Path) -> bool {
+    crate::launcher::is_executable(&node_bin(prefix))
+        && crate::launcher::is_executable(&npm_bin(prefix))
+}
+
+fn bundled_node_version(paths: &BundledPaths) -> Option<String> {
+    paths
+        .find_file("node-runtime.version")
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .map(|version| version.trim().to_owned())
+        .filter(|version| !version.is_empty())
+}
+
 fn dsh_bin(prefix: &Path) -> PathBuf {
     #[cfg(windows)]
     {
@@ -108,28 +152,106 @@ fn install_bundled_prefix(src: &Path, dest: &Path) -> Result<String, String> {
     activate_staged_prefix(&staging, dest)
 }
 
+fn activate_staged_node_runtime(staging: &Path, dest: &Path) -> Result<String, String> {
+    let Some(version) = node_runtime_version(staging).filter(|_| node_runtime_ready(staging))
+    else {
+        let _ = std::fs::remove_dir_all(staging);
+        return Err("内置 Node.js/npm 资源不完整".to_string());
+    };
+    if dest.exists() {
+        std::fs::remove_dir_all(dest).map_err(|error| error.to_string())?;
+    }
+    std::fs::rename(staging, dest).map_err(|error| error.to_string())?;
+    Ok(version)
+}
+
+pub fn provision_bundled_node(paths: &BundledPaths) -> Result<Option<String>, String> {
+    if is_flatpak() {
+        return Ok(None);
+    }
+    let dest = node_runtime_prefix();
+    let installed = node_runtime_version(&dest).filter(|_| node_runtime_ready(&dest));
+    let Some(bundled) = bundled_node_version(paths) else {
+        return Ok(installed);
+    };
+    if installed.as_deref() == Some(bundled.as_str()) {
+        return Ok(installed);
+    }
+    let Some(archive) = paths.find_file("node-runtime.tar.gz") else {
+        return Ok(installed);
+    };
+    let staging = dest.with_extension("staging");
+    if let Err(error) = extract_tar_gz(&archive, &staging) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(error.to_string());
+    }
+    activate_staged_node_runtime(&staging, &dest).map(Some)
+}
+
 /// Copy the packaged official dsh into the writable update prefix once.
 /// Flatpak already exposes its bundled core directly under `/app`.
+/// Compares bundled version with installed version; prefers the bundled
+/// version when newer, otherwise retains the installed version to avoid a
+/// stuck state where a previously-online-updated core never advances.
 pub fn provision_bundled_dsh(paths: &BundledPaths) -> Result<Option<String>, String> {
     if is_flatpak() {
         return Ok(read_version(Path::new(BUNDLED_PREFIX)));
     }
     let dest = update_prefix();
-    if crate::launcher::is_executable(&dsh_bin(&dest)) {
-        if let Some(version) = read_version(&dest) {
-            return Ok(Some(version));
-        }
-    }
+    let installed_version = if crate::launcher::is_executable(&dsh_bin(&dest)) {
+        read_version(&dest)
+    } else {
+        None
+    };
     if let Some(archive) = paths.find_file("dsh-prefix.tar.gz") {
-        return install_bundled_archive(&archive, &dest).map(Some);
+        let result = install_bundled_archive(&archive, &dest)
+            .and_then(|version| ensure_windows_dsh_shim(&dest).map(|_| version));
+        return result.map(|_| installed_version);
     }
     let Some(src) = bundled_dsh_prefix(paths) else {
-        return Ok(None);
+        return Ok(installed_version);
     };
-    install_bundled_prefix(&src, &dest).map(Some)
+    let result = install_bundled_prefix(&src, &dest)
+        .and_then(|version| ensure_windows_dsh_shim(&dest).map(|_| version));
+    match (installed_version, result) {
+        (Some(installed), Ok(bundled)) => {
+            let prefer_bundled = bundled > installed;
+            Ok(if prefer_bundled {
+                Some(bundled)
+            } else {
+                Some(installed)
+            })
+        }
+        (None, ok) => ok.map(Some),
+        (Some(_), Err(e)) => Err(e),
+    }
+}
+
+#[cfg(windows)]
+fn ensure_windows_dsh_shim(prefix: &Path) -> Result<(), String> {
+    let entry = prefix.join("node_modules/@deepseek-ai/dsh/lib/bin.js");
+    if !entry.is_file() {
+        return Err("内置 dsh 启动入口缺失".to_string());
+    }
+    std::fs::write(
+        dsh_bin(prefix),
+        "@echo off\r\n\"%~dp0..\\node-runtime\\node.exe\" \"%~dp0node_modules\\@deepseek-ai\\dsh\\lib\\bin.js\" %*\r\n",
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[cfg(not(windows))]
+fn ensure_windows_dsh_shim(_prefix: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 pub fn find_npm() -> Option<PathBuf> {
+    if !is_flatpak() {
+        let bundled_npm = npm_bin(&node_runtime_prefix());
+        if crate::launcher::is_executable(&bundled_npm) {
+            return Some(bundled_npm);
+        }
+    }
     for candidate in ["/app/bin/npm", "/app/node24/bin/npm"] {
         let path = PathBuf::from(candidate);
         if crate::launcher::is_executable(&path) {
@@ -140,6 +262,12 @@ pub fn find_npm() -> Option<PathBuf> {
 }
 
 fn find_node_dir() -> Option<PathBuf> {
+    if !is_flatpak() {
+        let bundled_node = node_bin(&node_runtime_prefix());
+        if crate::launcher::is_executable(&bundled_node) {
+            return bundled_node.parent().map(Path::to_path_buf);
+        }
+    }
     for candidate in ["/app/bin/node", "/app/node24/bin/node"] {
         let path = PathBuf::from(candidate);
         if crate::launcher::is_executable(&path) {
@@ -161,7 +289,7 @@ fn selected_npm_registry<'a>(
         .unwrap_or_else(|| OsStr::new(DEFAULT_NPM_REGISTRY))
 }
 
-pub(crate) fn configure_npm_registry(command: &mut Command) {
+pub fn configure_npm_registry(command: &mut Command) {
     let desktop_override = std::env::var_os(ENV_NPM_REGISTRY);
     let npm_override =
         std::env::var_os("npm_config_registry").or_else(|| std::env::var_os("NPM_CONFIG_REGISTRY"));
@@ -169,6 +297,25 @@ pub(crate) fn configure_npm_registry(command: &mut Command) {
         "npm_config_registry",
         selected_npm_registry(desktop_override.as_deref(), npm_override.as_deref()),
     );
+}
+
+pub fn configure_node_runtime(command: &mut Command) {
+    if is_flatpak() {
+        return;
+    }
+    let node = node_bin(&node_runtime_prefix());
+    let Some(node_dir) = crate::launcher::is_executable(&node)
+        .then(|| node.parent().map(Path::to_path_buf))
+        .flatten()
+    else {
+        return;
+    };
+    let mut path = node_dir.into_os_string();
+    path.push(if cfg!(windows) { ";" } else { ":" });
+    if let Some(existing) = std::env::var_os("PATH") {
+        path.push(existing);
+    }
+    command.env("PATH", path);
 }
 
 fn npm_command(npm: &Path) -> Command {
@@ -367,6 +514,14 @@ pub fn update_dsh(enabled: bool) -> UpdateResult {
         Duration::from_secs(INSTALL_TIMEOUT_SECONDS),
     ) {
         Ok(out) if out.status.success() => {
+            if let Err(error) = ensure_windows_dsh_shim(&dest) {
+                return UpdateResult {
+                    status: "failed",
+                    version: read_version(&dest).or(current),
+                    previous,
+                    message: format!("dsh 更新后无法配置内置 Node.js 启动器：{error}"),
+                };
+            }
             let installed = read_version(&dest).or(current);
             UpdateResult {
                 status: "updated",
@@ -493,6 +648,36 @@ mod tests {
         );
         assert_eq!(read_version(&dest).as_deref(), Some("0.1.0-rc.7"));
         assert!(crate::launcher::is_executable(&dsh_bin(&dest)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn node_runtime_archive_is_activated_when_complete() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("src");
+        let dest = tmp.path().join("dest");
+        for executable in [node_bin(&src), npm_bin(&src)] {
+            std::fs::create_dir_all(executable.parent().unwrap()).unwrap();
+            std::fs::write(&executable, "#!/bin/sh\n").unwrap();
+            std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        std::fs::write(src.join(NODE_RUNTIME_MARKER), "24.19.0\n").unwrap();
+        let archive_path = tmp.path().join("node-runtime.tar.gz");
+        let encoder = GzEncoder::new(File::create(&archive_path).unwrap(), Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        builder.append_dir_all(".", &src).unwrap();
+        builder.into_inner().unwrap().finish().unwrap();
+
+        let staging = dest.with_extension("staging");
+        extract_tar_gz(&archive_path, &staging).unwrap();
+        assert_eq!(
+            activate_staged_node_runtime(&staging, &dest).unwrap(),
+            "24.19.0"
+        );
+        assert_eq!(node_runtime_version(&dest).as_deref(), Some("24.19.0"));
+        assert!(node_runtime_ready(&dest));
     }
 
     #[test]

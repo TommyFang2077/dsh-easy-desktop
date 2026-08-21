@@ -84,18 +84,22 @@ jobs:
         include:
           - name: macos-arm64
             platform: macos-latest
+            node_runtime_platform: darwin-arm64
             rust_targets: aarch64-apple-darwin
             args: --target aarch64-apple-darwin --bundles app,dmg
           - name: macos-x64
             platform: macos-latest
+            node_runtime_platform: darwin-x64
             rust_targets: x86_64-apple-darwin
             args: --target x86_64-apple-darwin --bundles app,dmg
           - name: linux
             platform: ubuntu-22.04
+            node_runtime_platform: linux-x64
             rust_targets: ""
             args: --bundles deb,rpm,appimage
           - name: windows
             platform: windows-latest
+            node_runtime_platform: win-x64
             rust_targets: ""
             args: --bundles nsis,msi
     runs-on: ${{ matrix.platform }}
@@ -130,8 +134,10 @@ jobs:
             xdg-utils \
             rpm
 
-      - name: Vendor bundled plugins
+      - name: Vendor bundled plugins and Node runtime
         shell: bash
+        env:
+          NODE_RUNTIME_PLATFORM: ${{ matrix.node_runtime_platform }}
         run: bash scripts/vendor-native.sh
 
       - name: Export embedded updater public key
@@ -159,6 +165,20 @@ jobs:
           uploadUpdaterJson: false
           uploadUpdaterSignatures: true
           args: ${{ matrix.args }}
+
+      - name: Normalize Tauri artifact names for fallback URL compatibility
+        shell: bash
+        run: |
+          # Normalize DeepSeek.Harness_ prefix to dsh-easy-desktop_ for fallback URL matching
+          cd target
+          find . -path "*/release/bundle/*" -type f | while read f; do
+            base=$(basename "$f")
+            if [[ "$base" == DeepSeek.Harness_* ]]; then
+              new_name="${base/DeepSeek.Harness_/dsh-easy-desktop_}"
+              mv "$f" "$(dirname "$f")/$new_name"
+              echo "Normalized: $base -> $new_name"
+            fi
+          done
 
       - name: Collect Gitea release artifacts
         uses: actions/upload-artifact@v4

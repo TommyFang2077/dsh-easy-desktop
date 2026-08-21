@@ -10,7 +10,7 @@ use regex::Regex;
 use thiserror::Error;
 
 use crate::paths::{home_dir, is_flatpak};
-use crate::updater::{configure_npm_registry, update_dsh_bin};
+use crate::updater::{configure_node_runtime, configure_npm_registry, update_dsh_bin};
 use crate::{ENV_BIN_OVERRIDE, ENV_CWD_OVERRIDE};
 
 pub const DSH_DEFAULT_HOST: &str = "127.0.0.1";
@@ -232,6 +232,7 @@ impl DshLauncher {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .stdin(Stdio::null());
+        configure_node_runtime(&mut cmd);
         configure_npm_registry(&mut cmd);
         #[cfg(unix)]
         {

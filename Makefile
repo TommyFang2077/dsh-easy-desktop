@@ -3,8 +3,8 @@ CARGO       ?= cargo
 PREFIX      ?= $(HOME)/.local
 APP_ID      := io.github.tommyfang.DshDesktop
 DSH_VERSION := 0.1.0-rc.7
+NODE_VERSION := 24.19.0
 MODLENS_VERSION := 3.16.6
-MARKET_VERSION := 1.11.3
 ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
@@ -30,7 +30,7 @@ BIN         := target/release/dsh-desktop
 # config; without it every build silently disables in-app updates.
 export DSH_DESKTOP_UPDATER_PUBKEY := $(shell jq -r '.plugins.updater.pubkey' src-tauri/tauri.conf.json)
 
-.PHONY: all run dev test vendor vendor-native vendor-anchored build install uninstall flatpak-build flatpak-export flatpak-install flatpak-bundle flatpak-run clean
+.PHONY: all run dev test vendor vendor-native vendor-anchored gitea-publish build install uninstall flatpak-build flatpak-export flatpak-install flatpak-bundle flatpak-run clean
 
 all: test
 
@@ -50,11 +50,12 @@ test:
 
 vendor:
 	mkdir -p vendor
-	rm -rf $(VENDOR_DIR) $(MODLENS_DIR) $(MARKET_DIR) $(VENDOR_ARCHIVE) $(MODLENS_ARCHIVE) $(MARKET_ARCHIVE)
+	rm -rf $(VENDOR_DIR) $(MODLENS_DIR) $(MARKET_DIR) $(VENDOR_ARCHIVE) $(MODLENS_ARCHIVE) $(MARKET_ARCHIVE) vendor/node-runtime vendor/node-runtime.tar.gz vendor/node-runtime.version
 	npm_config_registry=https://registry.npmmirror.com npm install --prefix=$(CURDIR)/$(VENDOR_DIR) --global --prefer-offline --no-audit --no-fund @deepseek-ai/dsh@$(DSH_VERSION)
 	$(PYTHON) scripts/prune-npm-runtime.py $(VENDOR_DIR)
 	tar -czf $(VENDOR_ARCHIVE) -C $(VENDOR_DIR) .
 	test $$(wc -c < $(VENDOR_ARCHIVE)) -le $(VENDOR_ARCHIVE_MAX_BYTES)
+	NODE_VERSION=$(NODE_VERSION) bash scripts/vendor-node-runtime.sh
 	npm install --prefix=$(CURDIR)/$(MODLENS_DIR) --prefer-offline --no-audit --no-fund @liustack/modlens@$(MODLENS_VERSION)
 	$(PYTHON) scripts/prune-npm-runtime.py $(MODLENS_DIR)
 	tar -czf $(MODLENS_ARCHIVE) -C $(MODLENS_DIR) .
@@ -65,7 +66,7 @@ vendor:
 	$(MAKE) vendor-anchored
 
 vendor-native:
-	DSH_VERSION=$(DSH_VERSION) MODLENS_VERSION=$(MODLENS_VERSION) MARKET_VERSION=$(MARKET_VERSION) ANCHORED_COMMIT=$(ANCHORED_COMMIT) ANCHORED_REPO=$(ANCHORED_REPO) bash scripts/vendor-native.sh
+	DSH_VERSION=$(DSH_VERSION) NODE_VERSION=$(NODE_VERSION) MODLENS_VERSION=$(MODLENS_VERSION) MARKET_VERSION=$(MARKET_VERSION) ANCHORED_COMMIT=$(ANCHORED_COMMIT) ANCHORED_REPO=$(ANCHORED_REPO) bash scripts/vendor-native.sh
 
 vendor-anchored:
 	rm -rf vendor/.anchored-src $(ANCHORED_DIR) $(ZERO_DIR)
@@ -84,6 +85,9 @@ vendor-anchored:
 	$(PYTHON) scripts/localize_preset.py $(ANCHORED_DIR)/preset.yml
 	$(PYTHON) scripts/localize_preset.py $(ZERO_DIR)/preset.yml zero
 	rm -rf vendor/.anchored-src
+gitea-publish:
+	RELEASE_TAG="$(RELEASE_TAG)" bash scripts/publish-gitea-actions.sh
+
 
 install: build
 	install -Dm755 $(BIN) $(DESTDIR)$(PREFIX)/bin/dsh-desktop
