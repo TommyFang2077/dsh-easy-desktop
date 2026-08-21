@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 use serde_json::{json, Value};
 
-use crate::paths::{copy_tree, dsh_home, extract_tar_gz, replace_symlink, BundledPaths};
+#[cfg(all(not(windows), not(test)))]
+use crate::paths::replace_symlink;
+use crate::paths::{copy_tree, dsh_home, extract_tar_gz, BundledPaths};
 
 pub const PACKAGE: &str = "@liustack/modlens";
 pub const VOICE_PACKAGE: &str = "dsh-desktop-voice";
@@ -140,8 +142,6 @@ fn install_into_profile(src_prefix: &Path, profile: &Path) -> std::io::Result<()
             copy_tree(&src_dep, &dest_nm.join(dep), true)?;
         }
     }
-    let fallback = dsh_home().join("profiles/node_modules/@liustack/modlens");
-    let _ = replace_symlink(&fallback, &dest_pkg);
     Ok(())
 }
 
@@ -155,6 +155,22 @@ fn read_pkg_version(dir: &Path) -> Option<String> {
 
 fn local_plugin_spec(pkg: &str) -> String {
     format!("file:{MANAGED_BUNDLES_DIR}/{pkg}")
+}
+
+fn sync_profile_plugin(fallback: &Path, installed: &Path) -> std::io::Result<()> {
+    #[cfg(any(windows, test))]
+    {
+        if read_pkg_version(installed).is_some()
+            && read_pkg_version(fallback) == read_pkg_version(installed)
+        {
+            return Ok(());
+        }
+        copy_tree(installed, fallback, true)
+    }
+    #[cfg(all(not(windows), not(test)))]
+    {
+        replace_symlink(fallback, installed)
+    }
 }
 
 fn install_profile_plugin(
@@ -183,8 +199,12 @@ fn install_profile_plugin(
     if !installed_current && copy_tree(&managed, &dest, true).is_err() {
         return false;
     }
-    let fallback = dsh_home().join("profiles/node_modules").join(pkg);
-    let _ = replace_symlink(&fallback, &dest);
+    if profile == web_profile_dir() {
+        let fallback = dsh_home().join("profiles/node_modules").join(pkg);
+        if sync_profile_plugin(&fallback, &dest).is_err() {
+            return false;
+        }
+    }
     true
 }
 
@@ -237,7 +257,7 @@ fn install_market_plugin(paths: &BundledPaths, profile: &Path) -> std::io::Resul
         let fallback = dsh_home()
             .join("profiles/node_modules")
             .join(MARKET_PACKAGE);
-        let _ = replace_symlink(&fallback, &dest);
+        sync_profile_plugin(&fallback, &dest)?;
     }
     Ok(Some(installed_after))
 }
@@ -517,6 +537,10 @@ fn ensure_modlens_inner(
     } else {
         installed.clone().unwrap_or_else(|| version.to_string())
     };
+    if profile == web_profile_dir() {
+        let fallback = dsh_home().join("profiles/node_modules/@liustack/modlens");
+        sync_profile_plugin(&fallback, &package_dir(profile))?;
+    }
     packages.insert(PACKAGE.to_string(), installed_after.clone());
     ensure_manifest(profile, &packages)?;
     let patch = profile.join("cordis.patch.yml");
@@ -732,6 +756,20 @@ ui-theme:
                 .join("package.json")
                 .is_file());
         }
+    }
+
+    #[test]
+    fn windows_profile_plugin_fallback_is_a_real_directory() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let installed = tmp.path().join("profile/node_modules/dsh-desktop-voice");
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::write(installed.join("package.json"), r#"{"version":"0.4.0"}"#).unwrap();
+        let fallback = tmp.path().join("profiles/node_modules/dsh-desktop-voice");
+
+        sync_profile_plugin(&fallback, &installed).unwrap();
+
+        assert!(fallback.join("package.json").is_file());
+        assert!(!fallback.is_symlink());
     }
 
     #[test]
