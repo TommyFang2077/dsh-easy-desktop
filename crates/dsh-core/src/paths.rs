@@ -93,10 +93,14 @@ impl BundledPaths {
     }
 
     pub fn find_file(&self, rel: &str) -> Option<PathBuf> {
-        self.roots()
-            .into_iter()
-            .map(|root| root.join(rel))
-            .find(|candidate| candidate.is_file())
+        for root in self.roots() {
+            for candidate in [root.join(rel), root.join("vendor").join(rel)] {
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -196,4 +200,21 @@ pub fn replace_symlink(link: &Path, target: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finds_archives_nested_under_tauri_vendor_resources() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let archive = tmp.path().join("vendor/dshmarket.tar.gz");
+        std::fs::create_dir_all(archive.parent().unwrap()).unwrap();
+        std::fs::write(&archive, []).unwrap();
+
+        let paths = BundledPaths::default().with_resource_dir(tmp.path().to_path_buf());
+
+        assert_eq!(paths.find_file("dshmarket.tar.gz"), Some(archive));
+    }
 }
