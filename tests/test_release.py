@@ -159,6 +159,13 @@ class GiteaPublishWorkflowTests(unittest.TestCase):
         self.assertIn("seq 1 90", publisher)
         self.assertIn("expected at least 15 release assets", publisher)
 
+class VendoringConfigurationTests(unittest.TestCase):
+    def test_native_vendor_script_has_all_pinned_component_versions(self):
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+        script = (ROOT / "scripts" / "vendor-native.sh").read_text(encoding="utf-8")
+        self.assertIn("MARKET_VERSION := 1.11.3", makefile)
+        self.assertIn('MARKET_VERSION="${MARKET_VERSION:-1.11.3}"', script)
+
 class ReleaseVersionTests(unittest.TestCase):
     def test_cargo_and_tauri_versions_match(self):
         cargo = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))

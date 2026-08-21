@@ -5,6 +5,7 @@ APP_ID      := io.github.tommyfang.DshDesktop
 DSH_VERSION := 0.1.0-rc.7
 NODE_VERSION := 24.19.0
 MODLENS_VERSION := 3.16.6
+MARKET_VERSION := 1.11.3
 ANCHORED_COMMIT := ffb845c5480adc953392a6db6f8a98ede621174b
 ANCHORED_REPO := https://github.com/xiaobright/dsh-anchored-standard.git
 VENDOR_DIR  := vendor/dsh-prefix
